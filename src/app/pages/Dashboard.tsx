@@ -98,6 +98,7 @@ const DATA: Section[] = [
         description: 'پایه حقوق، حق مسکن، بن خواروبار و فرمول‌ها.',
         status: 'important',
         icon: CreditCard,
+        path: '/payroll-contract',
       },
     ],
   },

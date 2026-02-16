@@ -11,7 +11,9 @@ import {
   HelpCircle,
   LogOut,
   Building2,
-  Search
+  Search,
+  GitBranch,
+  FileText
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -37,6 +39,10 @@ const Sidebar = ({ currentPath }: { currentPath: string }) => {
         {[
           { icon: LayoutDashboard, label: 'داشبورد', active: currentPath === '/', path: '/' },
           { icon: CheckCircle2, label: 'چک‌لیست راه‌اندازی', active: currentPath === '/', path: '/' },
+          { icon: Building2, label: 'محل‌های کار', active: currentPath === '/locations', path: '/locations' },
+          { icon: GitBranch, label: 'گروه های کاری', active: currentPath === '/work-groups', path: '/work-groups' },
+          { icon: Calendar, label: 'سیاست‌های کاری', active: currentPath === '/policies', path: '/policies' },
+          { icon: FileText, label: 'قرارداد حقوق', active: currentPath === '/payroll-contract', path: '/payroll-contract' },
           { icon: Users, label: 'پرسنل', active: false, path: '/' },
           { icon: Calendar, label: 'تقویم', active: false, path: '/' },
         ].map((item, idx) => (

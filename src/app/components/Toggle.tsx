@@ -23,7 +23,7 @@ export function Toggle({ checked, onChange }: ToggleProps) {
       <span
         className={cn(
           "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-          checked ? "translate-x-1" : "translate-x-6"
+          checked ? "translate-x-6" : "translate-x-1"
         )}
       />
     </button>

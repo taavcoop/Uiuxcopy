@@ -17,6 +17,13 @@ export default defineConfig({
     },
   },
 
+  // Dev server: run on port 3000 by default
+  server: {
+    port: 3000,
+    strictPort: true,
+    host: true,
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })

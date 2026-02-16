@@ -1,10 +1,12 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronRight, Info, CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Toggle } from '../components/Toggle';
 
 type MainTab = 'shift' | 'leave' | 'mission' | 'overtime' | 'attendance' | 'swap' | 'holiday' | 'other' | 'nightShift';
 type ShiftSubTab = 'fixed' | 'floating' | 'rotating' | 'split';
+type LeaveSubTab = 'annual' | 'sick' | 'unpaid' | 'incentive';
 
 export default function AddPolicy() {
   const navigate = useNavigate();
@@ -12,6 +14,10 @@ export default function AddPolicy() {
   const [policyDesc, setPolicyDesc] = useState('');
   const [activeTab, setActiveTab] = useState<MainTab>('shift');
   const [activeShiftSubTab, setActiveShiftSubTab] = useState<ShiftSubTab>('fixed');
+  const [activeLeaveSubTab, setActiveLeaveSubTab] = useState<LeaveSubTab>('annual');
+
+  // Leave Policy - Unit Toggle State
+  const [leaveUnitMode, setLeaveUnitMode] = useState<'daily' | 'hourly'>('daily');
 
   // Fixed Shift States
   const [fixedInGrace, setFixedInGrace] = useState('10');
@@ -58,6 +64,30 @@ export default function AddPolicy() {
   const [nightShiftStart, setNightShiftStart] = useState('20:00');
   const [nightShiftEnd, setNightShiftEnd] = useState('08:00');
 
+  // Leave Policy States
+  const [leaveTitle, setLeaveTitle] = useState('');
+  const [leaveNature, setLeaveNature] = useState<'paid' | 'unpaid'>('paid');
+  const [leaveUnit, setLeaveUnit] = useState<'daily' | 'hourly'>('daily');
+  const [leaveQuotaView, setLeaveQuotaView] = useState<'day' | 'hour'>('day');
+  const [leaveAnnualQuota, setLeaveAnnualQuota] = useState('26');
+  const [leaveAnnualQuotaHours, setLeaveAnnualQuotaHours] = useState('208');
+  const [leaveAnnualQuotaMinutes, setLeaveAnnualQuotaMinutes] = useState('0');
+  const [leaveMonthlyQuota, setLeaveMonthlyQuota] = useState('2.5');
+  const [leaveMonthlyQuotaHours, setLeaveMonthlyQuotaHours] = useState('20');
+  const [leaveMonthlyQuotaMinutes, setLeaveMonthlyQuotaMinutes] = useState('0');
+  const [leaveMonthlyCapEnabled, setLeaveMonthlyCapEnabled] = useState(true);
+  const [leaveMinRequest, setLeaveMinRequest] = useState('30');
+  const [leaveMinUnit, setLeaveMinUnit] = useState<'minute' | 'day'>('minute');
+  const [leaveMinMinutes, setLeaveMinMinutes] = useState('30');
+  const [leaveMaxRequest, setLeaveMaxRequest] = useState('3');
+  const [leaveMaxMinutes, setLeaveMaxMinutes] = useState('180');
+  const [leaveCarryoverCap, setLeaveCarryoverCap] = useState('9');
+  const [leaveCarryoverCapHours, setLeaveCarryoverCapHours] = useState('72');
+  const [leaveCarryoverCapMinutes, setLeaveCarryoverCapMinutes] = useState('0');
+  const [leaveBuyback, setLeaveBuyback] = useState(false);
+  const [leaveAttachmentRequired, setLeaveAttachmentRequired] = useState(false);
+  const [leaveApprovalSteps, setLeaveApprovalSteps] = useState<'1' | '2'>('1');
+
   // Work Calendar State
   const [selectedCalendar, setSelectedCalendar] = useState<string>('');
 
@@ -88,6 +118,20 @@ export default function AddPolicy() {
     { id: 'floating' as const, label: 'شیفت شناور', desc: 'زمان ورود/خروج انعطاف‌پذیر' },
     { id: 'rotating' as const, label: 'شیفت چرخشی', desc: 'چرخش بین شیفت‌های مختلف' },
     { id: 'split' as const, label: 'شیفت دوتیکه', desc: 'کار در دو بازه زمانی جداگانه' },
+  ];
+
+  const leaveTitleDefaults: Record<LeaveSubTab, string> = {
+    annual: 'مرخصی استحقاقی',
+    sick: 'مرخصی استعلاجی',
+    unpaid: 'مرخصی بدون حقوق',
+    incentive: 'مرخصی تشویقی',
+  };
+
+  const leaveSubTabs = [
+    { id: 'annual' as const, label: 'استحقاقی', desc: 'مرخصی‌های سالانه و قانونی' },
+    { id: 'sick' as const, label: 'استعلاجی', desc: 'نیازمند گواهی پزشکی' },
+    { id: 'unpaid' as const, label: 'بدون حقوق', desc: 'کسر از حقوق' },
+    { id: 'incentive' as const, label: 'تشویقی', desc: 'مناسبت، شویق و ...' },
   ];
 
   // Mock calendars data
@@ -389,8 +433,95 @@ export default function AddPolicy() {
             </div>
           )}
 
+          {/* Leave Policy Tab */}
+          {activeTab === 'leave' && (
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-bold text-white mb-2">سیاست‌های مرخصی</h2>
+                <p className="text-xs text-slate-400">تعریف نوع مرخصی، سهمیه‌ها و محدودیت‌های درخواست</p>
+              </div>
+
+              {/* Leave Sub Tabs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+                {leaveSubTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveLeaveSubTab(tab.id);
+                    }}
+                    className={cn(
+                      'p-4 rounded-xl border text-right transition-all group',
+                      activeLeaveSubTab === tab.id
+                        ? 'bg-indigo-500/10 border-indigo-500/30 shadow-lg shadow-indigo-500/5'
+                        : 'bg-slate-800/30 border-white/5 hover:bg-slate-800/50 hover:border-white/10'
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'text-sm font-bold mb-1 transition-colors',
+                        activeLeaveSubTab === tab.id ? 'text-indigo-300' : 'text-slate-200 group-hover:text-white'
+                      )}
+                    >
+                      {tab.label}
+                    </div>
+                    <div className="text-xs text-slate-500">{tab.desc}</div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-slate-950/50 border border-white/5 rounded-xl p-5">
+                <LeavePolicyTab
+                  title={leaveTitle}
+                  setTitle={setLeaveTitle}
+                  nature={leaveNature}
+                  setNature={setLeaveNature}
+                  unit={leaveUnit}
+                  setUnit={setLeaveUnit}
+                  quotaView={leaveQuotaView}
+                  setQuotaView={setLeaveQuotaView}
+                  annualQuota={leaveAnnualQuota}
+                  setAnnualQuota={setLeaveAnnualQuota}
+                  annualQuotaHours={leaveAnnualQuotaHours}
+                  setAnnualQuotaHours={setLeaveAnnualQuotaHours}
+                  annualQuotaMinutes={leaveAnnualQuotaMinutes}
+                  setAnnualQuotaMinutes={setLeaveAnnualQuotaMinutes}
+                  monthlyQuota={leaveMonthlyQuota}
+                  setMonthlyQuota={setLeaveMonthlyQuota}
+                  monthlyQuotaHours={leaveMonthlyQuotaHours}
+                  setMonthlyQuotaHours={setLeaveMonthlyQuotaHours}
+                  monthlyQuotaMinutes={leaveMonthlyQuotaMinutes}
+                  setMonthlyQuotaMinutes={setLeaveMonthlyQuotaMinutes}
+                  monthlyCapEnabled={leaveMonthlyCapEnabled}
+                  setMonthlyCapEnabled={setLeaveMonthlyCapEnabled}
+                  minRequest={leaveMinRequest}
+                  setMinRequest={setLeaveMinRequest}
+                  minUnit={leaveMinUnit}
+                  setMinUnit={setLeaveMinUnit}
+                  minMinutes={leaveMinMinutes}
+                  setMinMinutes={setLeaveMinMinutes}
+                  maxRequest={leaveMaxRequest}
+                  setMaxRequest={setLeaveMaxRequest}
+                  maxMinutes={leaveMaxMinutes}
+                  setMaxMinutes={setLeaveMaxMinutes}
+                  carryoverCap={leaveCarryoverCap}
+                  setCarryoverCap={setLeaveCarryoverCap}
+                  carryoverCapHours={leaveCarryoverCapHours}
+                  setCarryoverCapHours={setLeaveCarryoverCapHours}
+                  carryoverCapMinutes={leaveCarryoverCapMinutes}
+                  setCarryoverCapMinutes={setLeaveCarryoverCapMinutes}
+                  buyback={leaveBuyback}
+                  setBuyback={setLeaveBuyback}
+                  attachmentRequired={leaveAttachmentRequired}
+                  setAttachmentRequired={setLeaveAttachmentRequired}
+                  approvalSteps={leaveApprovalSteps}
+                  setApprovalSteps={setLeaveApprovalSteps}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Other Tabs - Coming Soon */}
-          {activeTab !== 'shift' && activeTab !== 'nightShift' && (
+          {activeTab !== 'shift' && activeTab !== 'nightShift' && activeTab !== 'leave' && (
             <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-12 text-center">
               <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Info className="w-8 h-8 text-slate-600" />
@@ -1274,6 +1405,365 @@ function NightShiftTab({ start, setStart, end, setEnd }: any) {
               className="input-field"
               placeholder="08:00"
             />
+          </FormGroup>
+        </FormGrid>
+      </div>
+    </div>
+  );
+}
+
+// Leave Policy Tab
+function LeavePolicyTab({
+  title,
+  setTitle,
+  nature,
+  setNature,
+  unit,
+  setUnit,
+  quotaView,
+  setQuotaView,
+  annualQuota,
+  setAnnualQuota,
+  annualQuotaHours,
+  setAnnualQuotaHours,
+  annualQuotaMinutes,
+  setAnnualQuotaMinutes,
+  monthlyQuota,
+  setMonthlyQuota,
+  monthlyQuotaHours,
+  setMonthlyQuotaHours,
+  monthlyQuotaMinutes,
+  setMonthlyQuotaMinutes,
+  monthlyCapEnabled,
+  setMonthlyCapEnabled,
+  minRequest,
+  setMinRequest,
+  minUnit,
+  setMinUnit,
+  minMinutes,
+  setMinMinutes,
+  maxRequest,
+  setMaxRequest,
+  maxMinutes,
+  setMaxMinutes,
+  carryoverCap,
+  setCarryoverCap,
+  carryoverCapHours,
+  setCarryoverCapHours,
+  carryoverCapMinutes,
+  setCarryoverCapMinutes,
+  buyback,
+  setBuyback,
+  attachmentRequired,
+  setAttachmentRequired,
+  approvalSteps,
+  setApprovalSteps,
+}: any) {
+  return (
+    <div className="space-y-6">
+      <InfoBox variant="info">این بخش هویت نوع مرخصی را مشخص می‌کند.</InfoBox>
+
+      <div>
+        <FormGrid>
+          <FormGroup label="نوع ماهیت" tooltip="آیا این مرخصی با حقوق است یا بدون حقوق؟">
+            <select value={nature} onChange={(e) => setNature(e.target.value)} className="input-field">
+              <option value="paid">با حقوق (Paid)</option>
+              <option value="unpaid">بدون حقوق (Unpaid)</option>
+            </select>
+          </FormGroup>
+
+          <FormGroup label="واحد محاسبه" tooltip="مرخصی به صورت روزانه یا ساعتی محاسبه می‌شود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div>
+                  <div className="text-sm text-slate-200">تغییر به {unit === 'daily' ? 'ساعت' : 'روز'}</div>
+                  <div className="text-xs text-slate-500">سوئیچ برای تغییر واحد محاسبه</div>
+                </div>
+              </div>
+              <Toggle 
+                checked={unit === 'hourly'} 
+                onChange={() => setUnit(unit === 'daily' ? 'hourly' : 'daily')} 
+              />
+            </div>
+            <div className="mt-2 text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+              📌 <strong>واحد فعلی:</strong> {unit === 'daily' ? 'روزانه' : 'ساعتی'}
+            </div>
+          </FormGroup>
+
+          <FormGroup label="نمایش سهمیه" tooltip="قابلیت نمایش سهمیه هم به روز و هم به ساعت برای گزارش‌گیری">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-sm text-slate-200">نمایش به {quotaView === 'day' ? 'ساعت' : 'روز'}</div>
+                <div className="text-xs text-slate-500">برای گزارش‌گیری و پیگیری</div>
+              </div>
+              <Toggle 
+                checked={quotaView === 'hour'} 
+                onChange={() => setQuotaView(quotaView === 'day' ? 'hour' : 'day')} 
+              />
+            </div>
+          </FormGroup>
+        </FormGrid>
+      </div>
+
+      <Divider />
+
+      <div>
+        <FormGrid cols={2}>
+          <FormGroup
+            label="سهمیه سالانه"
+            tooltip="مثال: ۲۶ روز طبق قانون کار یا ۳۰ روز. امکان نمایش به روز یا ساعت"
+          >
+            {unit === 'daily' ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={annualQuota}
+                  onChange={(e) => setAnnualQuota(e.target.value)}
+                  min="0"
+                  className="input-field flex-1"
+                  placeholder="26"
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap">روز</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">ساعت</label>
+                    <input
+                      type="number"
+                      value={annualQuotaHours}
+                      onChange={(e) => setAnnualQuotaHours(e.target.value)}
+                      min="0"
+                      className="input-field w-full"
+                      placeholder="208"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">دقیقه</label>
+                    <input
+                      type="number"
+                      value={annualQuotaMinutes}
+                      onChange={(e) => setAnnualQuotaMinutes(e.target.value)}
+                      min="0"
+                      max="59"
+                      className="input-field w-full"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                  ۲۶ روز = <strong>{annualQuotaHours || '208'} ساعت و {annualQuotaMinutes || '0'} دقیقه</strong>
+                </div>
+              </div>
+            )}
+          </FormGroup>
+
+          <FormGroup label="سهمیه ماهانه" tooltip="مثال: ۲.۵ روز">
+            {unit === 'daily' ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={monthlyQuota}
+                  onChange={(e) => setMonthlyQuota(e.target.value)}
+                  min="0"
+                  step="0.5"
+                  className="input-field flex-1"
+                  placeholder="2.5"
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap">روز</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">ساعت</label>
+                    <input
+                      type="number"
+                      value={monthlyQuotaHours}
+                      onChange={(e) => setMonthlyQuotaHours(e.target.value)}
+                      min="0"
+                      className="input-field w-full"
+                      placeholder="20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">دقیقه</label>
+                    <input
+                      type="number"
+                      value={monthlyQuotaMinutes}
+                      onChange={(e) => setMonthlyQuotaMinutes(e.target.value)}
+                      min="0"
+                      max="59"
+                      className="input-field w-full"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                  ۲.۵ روز = <strong>{monthlyQuotaHours || '20'} ساعت و {monthlyQuotaMinutes || '0'} دقیقه</strong>
+                </div>
+              </div>
+            )}
+          </FormGroup>
+
+          <FormGroup
+            label="محدودیت سقف ماهانه"
+            tooltip="اگر روشن باشد، پرسنل نمی‌تواند بیشتر از سهمیه ماهانه استفاده کند"
+            note={
+              monthlyCapEnabled
+                ? 'این محدودیت حتی در صورت داشتن سهمیه سالانه بالاتر اعمال می‌شود.'
+                : 'در صورت خاموش بودن، فقط سهمیه سالانه محدودیت دارد.'
+            }
+          >
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-sm text-slate-200">فعال‌سازی سقف ماهانه</div>
+                <div className="text-xs text-slate-500">برای کنترل مصرف ماهانه مرخصی</div>
+              </div>
+              <Toggle checked={monthlyCapEnabled} onChange={setMonthlyCapEnabled} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="حداقل مدت درخواست" tooltip="برای مرخصی ساعتی حداقل می‌تواند ۳۰ دقیقه باشد">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={unit === 'daily' ? minRequest : minUnit === 'day' ? minRequest : minMinutes}
+                  onChange={(e) => {
+                    if (unit === 'daily') {
+                      setMinRequest(e.target.value);
+                    } else {
+                      setLeaveMinMinutes(e.target.value);
+                    }
+                  }}
+                  min="0"
+                  className="input-field flex-1"
+                  placeholder={unit === 'daily' ? 'روز' : 'دقیقه'}
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap">{unit === 'daily' ? 'روز' : 'دقیقه'}</span>
+              </div>
+              {unit === 'hourly' && (
+                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                  💡 معادل: {Math.round((parseInt(minMinutes) || 30) / 60)} ساعت و {(parseInt(minMinutes) || 30) % 60} دقیقه
+                </div>
+              )}
+            </div>
+          </FormGroup>
+
+          <FormGroup
+            label="حداکثر مدت درخواست در یک نوبت"
+            tooltip="مثال: برای استعلاجی بیش از ۳ روز نیاز به تأییدیه خاص دارد"
+          >
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={unit === 'daily' ? maxRequest : leaveMaxMinutes}
+                  onChange={(e) => {
+                    if (unit === 'daily') {
+                      setLeaveMaxRequest(e.target.value);
+                    } else {
+                      setLeaveMaxMinutes(e.target.value);
+                    }
+                  }}
+                  min="0"
+                  className="input-field flex-1"
+                  placeholder={unit === 'daily' ? '3' : '180'}
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap">{unit === 'daily' ? 'روز' : 'دقیقه'}</span>
+              </div>
+              {unit === 'hourly' && (
+                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                  💡 معادل: {Math.round((parseInt(leaveMaxMinutes) || 180) / 60)} ساعت و {(parseInt(leaveMaxMinutes) || 180) % 60} دقیقه
+                </div>
+              )}
+            </div>
+          </FormGroup>
+
+          <FormGroup
+            label="سقف انتقال به سال بعد"
+            tooltip="طبق قانون کار معمولاً ۹ روز است، اما برخی شرکت‌ها ۱۵ روز یا نامحدود می‌گذارند"
+          >
+            {unit === 'daily' ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={carryoverCap}
+                  onChange={(e) => setCarryoverCap(e.target.value)}
+                  min="0"
+                  className="input-field flex-1"
+                  placeholder="9"
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap">روز</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">ساعت</label>
+                    <input
+                      type="number"
+                      value={carryoverCapHours}
+                      onChange={(e) => setCarryoverCapHours(e.target.value)}
+                      min="0"
+                      className="input-field w-full"
+                      placeholder="72"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">دقیقه</label>
+                    <input
+                      type="number"
+                      value={carryoverCapMinutes}
+                      onChange={(e) => setCarryoverCapMinutes(e.target.value)}
+                      min="0"
+                      max="59"
+                      className="input-field w-full"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                  ۹ روز = <strong>{carryoverCapHours || '72'} ساعت و {carryoverCapMinutes || '0'} دقیقه</strong>
+                </div>
+              </div>
+            )}
+          </FormGroup>
+        </FormGrid>
+      </div>
+
+      <Divider />
+
+      <div>
+        <SectionTitle>شرایط تکمیلی</SectionTitle>
+        <FormGrid cols={2}>
+          <FormGroup label="قابلیت بازخرید دارد؟" tooltip="آیا مانده مرخصی پایان سال قابل تبدیل به پول است؟">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-sm text-slate-200">بازخرید مانده مرخصی</div>
+                <div className="text-xs text-slate-500">امکان پرداخت نقدی پایان سال</div>
+              </div>
+              <Toggle checked={buyback} onChange={setBuyback} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="الزام به پیوست فایل" tooltip="برای مرخصی استعلاجی، گواهی پزشک الزامی است">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-sm text-slate-200">پیوست اجباری</div>
+                <div className="text-xs text-slate-500">درخواست بدون فایل ثبت نشود</div>
+              </div>
+              <Toggle checked={attachmentRequired} onChange={setAttachmentRequired} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="تعداد مراحل تأیید" tooltip="۱ مرحله: فقط مدیر مستقیم، ۲ مرحله: مدیر + مدیر ارشد/منابع انسانی">
+            <select value={approvalSteps} onChange={(e) => setApprovalSteps(e.target.value)} className="input-field">
+              <option value="1">۱ مرحله (مدیر مستقیم)</option>
+              <option value="2">۲ مرحله (مدیر + منابع انسانی)</option>
+            </select>
           </FormGroup>
         </FormGrid>
       </div>
