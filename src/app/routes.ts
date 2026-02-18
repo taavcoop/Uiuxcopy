@@ -6,6 +6,8 @@ import AddLocation from "./pages/AddLocation";
 import Policies from "./pages/Policies";
 import AddPolicy from "./pages/AddPolicy";
 import DraftTemplates from "./pages/DraftTemplates";
+import DraftTemplateEditor from "./pages/DraftTemplateEditor";
+import PayrollPackagePurchase from "./pages/PayrollPackagePurchase";
 
 export const router = createBrowserRouter([
   {
@@ -19,6 +21,9 @@ export const router = createBrowserRouter([
       { path: "policies/add", Component: AddPolicy },
       { path: "policies/:id", Component: AddPolicy },
       { path: "draft-templates", Component: DraftTemplates },
+      { path: "draft-templates/add", Component: DraftTemplateEditor },
+      { path: "draft-templates/:id", Component: DraftTemplateEditor },
+      { path: "draft-templates/payroll-package", Component: PayrollPackagePurchase },
     ],
   },
 ]);
