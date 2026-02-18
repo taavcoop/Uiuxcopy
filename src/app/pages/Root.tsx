@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import { 
   Menu,
   Bell,
@@ -11,7 +10,8 @@ import {
   HelpCircle,
   LogOut,
   Building2,
-  Search
+  Search,
+  FileText,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -22,6 +22,23 @@ function cn(...inputs: ClassValue[]) {
 
 const Sidebar = ({ currentPath }: { currentPath: string }) => {
   const navigate = useNavigate();
+  const menuItems = [
+    { icon: LayoutDashboard, label: 'داشبورد', path: '/', trackActive: true },
+    { icon: CheckCircle2, label: 'چک‌لیست راه‌اندازی', path: '/', trackActive: true },
+    { icon: Users, label: 'پرسنل', path: '/', trackActive: false },
+    { icon: Calendar, label: 'تقویم', path: '/', trackActive: false },
+    { icon: FileText, label: 'قالب‌های پیش‌نویس', path: '/draft-templates', trackActive: true },
+  ];
+
+  const isActive = (path: string, trackActive: boolean) => {
+    if (!trackActive) {
+      return false;
+    }
+    if (path === '/') {
+      return currentPath === '/';
+    }
+    return currentPath.startsWith(path);
+  };
   
   return (
     <aside className="hidden lg:flex flex-col w-64 bg-slate-900 border-l border-white/5 h-screen sticky top-0">
@@ -34,18 +51,13 @@ const Sidebar = ({ currentPath }: { currentPath: string }) => {
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         <div className="text-xs font-semibold text-slate-500 px-4 py-2">منو اصلی</div>
-        {[
-          { icon: LayoutDashboard, label: 'داشبورد', active: currentPath === '/', path: '/' },
-          { icon: CheckCircle2, label: 'چک‌لیست راه‌اندازی', active: currentPath === '/', path: '/' },
-          { icon: Users, label: 'پرسنل', active: false, path: '/' },
-          { icon: Calendar, label: 'تقویم', active: false, path: '/' },
-        ].map((item, idx) => (
+        {menuItems.map((item, idx) => (
           <button 
             key={idx}
             onClick={() => navigate(item.path)}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
-              item.active 
+              isActive(item.path, item.trackActive)
                 ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/10" 
                 : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             )}
@@ -81,8 +93,8 @@ const Sidebar = ({ currentPath }: { currentPath: string }) => {
 };
 
 export default function Root() {
-  const navigate = useNavigate();
-  const currentPath = window.location.pathname;
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-['Vazirmatn'] selection:bg-indigo-500/30 flex" dir="rtl">

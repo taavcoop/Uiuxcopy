@@ -5,6 +5,7 @@ import Locations from "./pages/Locations";
 import AddLocation from "./pages/AddLocation";
 import Policies from "./pages/Policies";
 import AddPolicy from "./pages/AddPolicy";
+import DraftTemplates from "./pages/DraftTemplates";
 
 export const router = createBrowserRouter([
   {
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
       { path: "policies", Component: Policies },
       { path: "policies/add", Component: AddPolicy },
       { path: "policies/:id", Component: AddPolicy },
+      { path: "draft-templates", Component: DraftTemplates },
     ],
   },
 ]);
