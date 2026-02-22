@@ -7,10 +7,13 @@ import {
   upsertDraftTemplate,
 } from '../lib/draft-template-store';
 import {
+  LABOR_OFFICE_REFERENCE_PRESETS,
   createEmptyDraftTemplate,
+  getLaborOfficeReferencePresetById,
   type DraftTemplate,
   type EydiPayoutMode,
   type FixedAdjustmentItem,
+  type LaborOfficeReferencePreset,
   type PayrollDraftKind,
   type PayrollField,
   type SeverancePayoutMode,
@@ -216,6 +219,7 @@ const ALL_PAYROLL_FIELD_KEYS: PayrollFieldKey[] = [
   ...SHIFT_BENEFITS.map((item) => item.key),
   ...LEGAL_FIELDS.map((item) => item.key),
 ];
+const STANDARD_MONTHLY_WORK_HOURS_FOR_HOURLY_RATE = 220;
 
 const toNumber = (value: string): number => {
   const n = Number(value);
@@ -299,6 +303,7 @@ const hydrateTemplate = (input: DraftTemplate): DraftTemplate => {
   return {
     ...base,
     ...input,
+    laborOfficeReference: input.laborOfficeReference ?? null,
     attendance: { ...base.attendance, ...input.attendance },
     payroll: normalizeBaseWageFlags(payrollWithFields),
     savedSections: { ...base.savedSections, ...input.savedSections },
@@ -378,6 +383,18 @@ const getSavedLabel = (date?: string) => {
   }
 };
 
+const formatReferenceDate = (date?: string) => {
+  if (!date) return '-';
+  try {
+    return new Date(date).toLocaleDateString('fa-IR');
+  } catch {
+    return date;
+  }
+};
+
+const getReferenceDateRangeLabel = (ref: { startDate: string; endDate: string }) =>
+  `${formatReferenceDate(ref.startDate)} تا ${formatReferenceDate(ref.endDate)}`;
+
 export default function DraftTemplateEditor() {
   const navigate = useNavigate();
   const params = useParams();
@@ -446,6 +463,67 @@ export default function DraftTemplateEditor() {
         },
       },
     }));
+  };
+
+  const applyLaborOfficeReference = (preset: LaborOfficeReferencePreset | null) => {
+    setTemplate((prev) => {
+      if (!preset) {
+        return {
+          ...prev,
+          laborOfficeReference: null,
+        };
+      }
+
+      const nextPayroll = { ...prev.payroll, ...preset.payrollScalarValues };
+
+      Object.entries(preset.payrollFieldValues).forEach(([key, value]) => {
+        if (!value) return;
+        const fieldKey = key as PayrollFieldKey;
+        nextPayroll[fieldKey] = {
+          ...nextPayroll[fieldKey],
+          value,
+        };
+      });
+
+      const taxExemption = preset.payrollScalarValues.monthlyTaxExemption ?? nextPayroll.monthlyTaxExemption;
+      nextPayroll.taxBrackets = normalizeTaxBrackets(
+        taxExemption,
+        preset.taxBrackets.map((row, index) => ({
+          id: `tax-ref-${preset.id}-${index + 1}`,
+          start: row.start,
+          end: row.end,
+          rate: row.rate,
+        })),
+      );
+
+      return {
+        ...prev,
+        laborOfficeReference: {
+          id: preset.id,
+          title: preset.title,
+          startDate: preset.startDate,
+          endDate: preset.endDate,
+          appliedAt: new Date().toISOString(),
+        },
+        attendance: {
+          ...prev.attendance,
+          ...preset.attendance,
+        },
+        payroll: nextPayroll,
+      };
+    });
+
+    if (preset) {
+      setNotice({
+        type: 'success',
+        text: `مقادیر مرجع «${preset.title}» در فیلدهای مرتبط اعمال شد. برای ثبت نهایی، بخش‌ها را ذخیره کنید.`,
+      });
+    } else {
+      setNotice({
+        type: 'success',
+        text: 'اتصال قالب به مرجع اداره کار حذف شد. مقادیر فعلی فرم بدون تغییر باقی ماند.',
+      });
+    }
   };
 
   const setShiftCoverage = (kind: 'insurance' | 'tax', value: boolean) => {
@@ -523,43 +601,40 @@ export default function DraftTemplateEditor() {
     });
   };
 
-  const saveSection = (section: SectionId) => {
-    if (section !== 'base' && !baseReady) {
-      setNotice({ type: 'error', text: 'ابتدا اطلاعات پایه را کامل و ذخیره کنید.' });
-      return;
-    }
-    if (section === 'base' && baseError) {
-      setNotice({ type: 'error', text: baseError });
-      return;
-    }
+  const getSectionSaveError = (section: SectionId): string | null => {
+    if (section !== 'base' && !baseReady) return 'ابتدا اطلاعات پایه را کامل و ذخیره کنید.';
+    if (section === 'base' && baseError) return baseError;
     if (section.startsWith('payroll') && !hasPayrollPackage) {
-      setNotice({ type: 'error', text: 'برای ثبت آیتم‌های حقوق و دستمزد باید پکیج مربوطه فعال شود.' });
-      return;
+      return 'برای ثبت آیتم‌های حقوق و دستمزد باید پکیج مربوطه فعال شود.';
     }
     if (section === 'payroll_setup' && template.payroll.inputMode === 'agreed') {
-      if (!template.payroll.agreedWage) {
-        setNotice({ type: 'error', text: 'در حالت توافقی، وارد کردن مبلغ حقوق توافقی الزامی است.' });
-        return;
-      }
+      if (!template.payroll.agreedWage) return 'در حالت توافقی، وارد کردن مبلغ حقوق توافقی الزامی است.';
 
       if (agreedAnalysis.diff > 0) {
         if (!AGREED_TARGETS.has(template.payroll.overMinWageBenefitTarget)) {
-          setNotice({ type: 'error', text: 'برای مازاد مبلغ توافقی، محل ثبت مازاد را انتخاب کنید.' });
-          return;
+          return 'برای مازاد مبلغ توافقی، محل ثبت مازاد را انتخاب کنید.';
         }
         if (
           template.payroll.overMinWageBenefitTarget === 'otherBenefits' &&
           agreedAnalysis.selectedExtraAdditions.length === 0
         ) {
-          setNotice({ type: 'error', text: 'برای «سایر مزایا» حداقل یک اضافه ثابت (مبلغ ثابت) را انتخاب یا ایجاد کنید.' });
-          return;
+          return 'برای «سایر مزایا» حداقل یک اضافه ثابت (مبلغ ثابت) را انتخاب یا ایجاد کنید.';
         }
       }
 
       if (agreedAnalysis.diff < 0 && agreedAnalysis.selectedDeficitDeductions.length === 0) {
-        setNotice({ type: 'error', text: 'برای کسری مبلغ توافقی، حداقل یک کسور ثابت (مبلغ ثابت) را انتخاب یا ایجاد کنید.' });
-        return;
+        return 'برای کسری مبلغ توافقی، حداقل یک کسور ثابت (مبلغ ثابت) را انتخاب یا ایجاد کنید.';
       }
+    }
+
+    return null;
+  };
+
+  const saveSection = (section: SectionId) => {
+    const sectionError = getSectionSaveError(section);
+    if (sectionError) {
+      setNotice({ type: 'error', text: sectionError });
+      return;
     }
 
     const normalizedPayroll = normalizeBaseWageFlags({
@@ -570,7 +645,9 @@ export default function DraftTemplateEditor() {
       section === 'payroll_setup'
         ? {
             ...normalizedPayroll,
-            hourlyRateOverride: normalizedPayroll.hourlyRateOverrideDraft.trim(),
+            hourlyRateOverride:
+              normalizedPayroll.hourlyRateOverrideDraft.trim() ||
+              (calculatedHourlyRate > 0 ? String(Number(calculatedHourlyRate.toFixed(2))) : ''),
           }
         : normalizedPayroll;
 
@@ -586,6 +663,63 @@ export default function DraftTemplateEditor() {
     upsertDraftTemplate(prepared);
     setTemplate(prepared);
     setNotice({ type: 'success', text: `بخش «${SECTION_TITLES[section]}» ذخیره شد.` });
+    if (!isEdit) navigate(`/draft-templates/${prepared.id}`, { replace: true });
+  };
+
+  const saveAllChanges = () => {
+    const sectionsToSave: SectionId[] = hasPayrollPackage
+      ? [
+          'base',
+          'attendance',
+          'payroll_setup',
+          ...(template.payroll.inputMode === 'manual'
+            ? ([
+                'payroll_main',
+                'payroll_job_benefits',
+                'payroll_other_benefits',
+                'payroll_fixed_adjustments',
+                'payroll_time_coeffs',
+                'payroll_shift',
+                'payroll_legal',
+                'payroll_deductions',
+              ] as SectionId[])
+            : []),
+        ]
+      : ['base', 'attendance'];
+
+    for (const section of sectionsToSave) {
+      const sectionError = getSectionSaveError(section);
+      if (sectionError) {
+        setNotice({ type: 'error', text: sectionError });
+        return;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const normalizedPayroll = normalizeBaseWageFlags({
+      ...template.payroll,
+      taxBrackets: normalizeTaxBrackets(template.payroll.monthlyTaxExemption, template.payroll.taxBrackets),
+      hourlyRateOverride:
+        template.payroll.hourlyRateOverrideDraft.trim() ||
+        (calculatedHourlyRate > 0 ? String(Number(calculatedHourlyRate.toFixed(2))) : ''),
+    });
+
+    const prepared: DraftTemplate = {
+      ...template,
+      payroll: normalizedPayroll,
+      updatedAt: now,
+      savedSections: sectionsToSave.reduce<Record<string, string>>(
+        (acc, section) => {
+          acc[section] = now;
+          return acc;
+        },
+        { ...template.savedSections },
+      ),
+    };
+
+    upsertDraftTemplate(prepared);
+    setTemplate(prepared);
+    setNotice({ type: 'success', text: 'همه تغییرات قابل‌نمایش در فرم با یک بار ذخیره اعمال شد.' });
     if (!isEdit) navigate(`/draft-templates/${prepared.id}`, { replace: true });
   };
 
@@ -607,7 +741,8 @@ export default function DraftTemplateEditor() {
     template.payroll.inputMode === 'agreed' && toNumber(template.payroll.agreedWage) > 0
       ? toNumber(template.payroll.agreedWage)
       : legalGross30;
-  const calculatedHourlyRate = monthly > 0 ? baseWageMonthly / monthly : 0;
+  const calculatedHourlyRate =
+    baseWageMonthly > 0 ? baseWageMonthly / STANDARD_MONTHLY_WORK_HOURS_FOR_HOURLY_RATE : 0;
   const workerInsuranceAmount = grossPay30 * (toNumber(template.payroll.workerInsuranceRate) / 100);
   const estimatedTaxAmount = estimateMonthlyTax(
     grossPay30,
@@ -618,24 +753,39 @@ export default function DraftTemplateEditor() {
   const hasAppliedHourlyOverride =
     Boolean(template.savedSections.payroll_setup) && Boolean(template.payroll.hourlyRateOverride.trim());
   const appliedHourlyRate = toNumber(template.payroll.hourlyRateOverride);
+  const calculatedHourlyRateDraftValue = calculatedHourlyRate > 0 ? String(Number(calculatedHourlyRate.toFixed(2))) : '';
+  const effectiveHourlyRateDraft = template.payroll.hourlyRateOverrideDraft || calculatedHourlyRateDraftValue;
   const showSectionsAfterBase = isEdit || baseReady;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto space-y-5">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/draft-templates')}
-            className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white">
-              {isEdit ? 'ویرایش قالب پیش‌نویس قرارداد' : 'ثبت قالب پیش‌نویس قرارداد'}
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">ذخیره هر بخش به‌صورت مستقل انجام می‌شود.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/draft-templates')}
+              className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white">
+                {isEdit ? 'ویرایش قالب پیش‌نویس قرارداد' : 'ثبت قالب پیش‌نویس قرارداد'}
+              </h1>
+              <p className="text-sm text-slate-400 mt-1">ذخیره هر بخش به‌صورت مستقل انجام می‌شود.</p>
+            </div>
           </div>
+        </div>
+
+        <div className="sticky top-3 z-30 flex justify-end">
+          <button
+            type="button"
+            onClick={saveAllChanges}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+          >
+            <Save className="w-4 h-4" />
+            ذخیره همه تغییرات
+          </button>
         </div>
 
         {notice && (
@@ -673,6 +823,45 @@ export default function DraftTemplateEditor() {
                   className="input-field min-h-24"
                 />
               </Field>
+            </div>
+            <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4 space-y-3">
+              <Field label="مقادیر مرجع اداره کار">
+                <select
+                  value={template.laborOfficeReference?.id ?? ''}
+                  onChange={(e) => applyLaborOfficeReference(getLaborOfficeReferencePresetById(e.target.value))}
+                  className="input-field"
+                >
+                  <option value="">عدم استفاده از مرجع اداره کار</option>
+                  {LABOR_OFFICE_REFERENCE_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.title} | {getReferenceDateRangeLabel(preset)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <p className="text-[11px] text-slate-400">
+                با انتخاب مرجع، مقادیر پایه اداره کار (مزایا، ضرایب، بیمه/مالیات و بخشی از حضور و غیاب) به‌صورت خودکار
+                در فرم قرار می‌گیرند.
+              </p>
+              <div
+                className={`rounded-lg border p-3 text-xs ${
+                  template.laborOfficeReference
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-100'
+                    : 'bg-slate-900/40 border-white/5 text-slate-300'
+                }`}
+              >
+                {template.laborOfficeReference ? (
+                  <div className="space-y-1">
+                    <div className="font-semibold">مرجع انتخاب‌شده: {template.laborOfficeReference.title}</div>
+                    <div>
+                      بازه اعتبار: {getReferenceDateRangeLabel(template.laborOfficeReference)} | زمان اعمال:{' '}
+                      {formatReferenceDate(template.laborOfficeReference.appliedAt)}
+                    </div>
+                  </div>
+                ) : (
+                  <span>برای این قالب از مقادیر مرجع اداره کار استفاده نشده است.</span>
+                )}
+              </div>
             </div>
           </div>
         </SectionCard>
@@ -765,7 +954,6 @@ export default function DraftTemplateEditor() {
               savedAt={template.savedSections.payroll_setup}
               onSave={() => saveSection('payroll_setup')}
               disabledSave={!baseReady}
-              sticky
             >
               <div className="mb-4">
                 <div className="text-sm font-bold text-white mb-2">نوع پیش‌نویس حقوق و دستمزد</div>
@@ -831,7 +1019,9 @@ export default function DraftTemplateEditor() {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
                 <div className="bg-slate-800/50 border border-white/10 rounded-xl p-3 space-y-2">
-                  <div className="text-xs text-slate-400">نرخ ساعتی (مزد مبنا ÷ ساعت موظفی ماه)</div>
+                  <div className="text-xs text-slate-400">
+                    نرخ ساعتی (مزد مبنا ماهانه ÷ {STANDARD_MONTHLY_WORK_HOURS_FOR_HOURLY_RATE} ساعت)
+                  </div>
                   {hasAppliedHourlyOverride ? (
                     <div className="space-y-1">
                       <div className="text-xs text-slate-500 line-through">
@@ -849,17 +1039,34 @@ export default function DraftTemplateEditor() {
                   <div className="text-[11px] text-slate-500">مزد مبنا ماهانه: {formatMoney(baseWageMonthly)}</div>
                   <input
                     type="number"
-                    value={template.payroll.hourlyRateOverrideDraft}
+                    value={effectiveHourlyRateDraft}
                     onChange={(e) =>
                       setTemplate((prev) => ({
                         ...prev,
                         payroll: { ...prev.payroll, hourlyRateOverrideDraft: e.target.value },
                       }))
                     }
-                    placeholder="ویرایش دستی نرخ ساعتی"
+                    placeholder="نرخ ساعتی (پیش‌فرض: محاسبه‌شده)"
                     className="input-field"
                   />
-                  <p className="text-[11px] text-slate-500">بعد از «ذخیره این بخش» مقدار جدید اعمال می‌شود.</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-slate-500">
+                      فرمول پیش‌فرض نرخ ساعتی: مزد مبنا ماهانه ÷ {STANDARD_MONTHLY_WORK_HOURS_FOR_HOURLY_RATE}. در صورت
+                      نیاز می‌توانید مقدار دستی ثبت کنید.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTemplate((prev) => ({
+                          ...prev,
+                          payroll: { ...prev.payroll, hourlyRateOverrideDraft: calculatedHourlyRateDraftValue },
+                        }))
+                      }
+                      className="shrink-0 px-2.5 py-1 rounded-lg border border-white/10 hover:border-white/20 text-[11px] text-slate-200"
+                    >
+                      اعمال مقدار محاسبه‌شده
+                    </button>
+                  </div>
                 </div>
                 <MiniStat label="حقوق ناخالص پرداختی (30 روز)" value={formatMoney(grossPay30)} />
                 <MiniStat label="حقوق خالص پرداختی (30 روز)" value={formatMoney(netPay30)} />

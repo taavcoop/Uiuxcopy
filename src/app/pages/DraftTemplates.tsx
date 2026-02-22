@@ -20,6 +20,15 @@ import {
 } from '../lib/draft-template-store';
 import type { DraftTemplate } from '../lib/draft-template-types';
 
+const formatFaDate = (value?: string) => {
+  if (!value) return '-';
+  try {
+    return new Date(value).toLocaleDateString('fa-IR');
+  } catch {
+    return value;
+  }
+};
+
 export default function DraftTemplates() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -177,9 +186,27 @@ export default function DraftTemplates() {
                           >
                             {template.status === 'active' ? 'فعال' : 'آرشیو'}
                           </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                              template.laborOfficeReference
+                                ? 'bg-sky-500/10 text-sky-300 border-sky-500/20'
+                                : 'bg-slate-700/30 text-slate-400 border-white/10'
+                            }`}
+                          >
+                            {template.laborOfficeReference ? 'با مرجع اداره کار' : 'بدون مرجع اداره کار'}
+                          </span>
                         </div>
 
                         <p className="text-sm text-slate-300">{template.description || 'توضیحی ثبت نشده است.'}</p>
+                        {template.laborOfficeReference && (
+                          <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-3 text-xs text-sky-100">
+                            <div className="font-semibold mb-1">{template.laborOfficeReference.title}</div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-sky-100/90">
+                              <span>تاریخ شروع: {formatFaDate(template.laborOfficeReference.startDate)}</span>
+                              <span>تاریخ پایان: {formatFaDate(template.laborOfficeReference.endDate)}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2">
