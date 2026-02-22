@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import {
   Archive,
   ArchiveRestore,
-  CalendarRange,
   ChevronRight,
   Copy,
   FileText,
@@ -21,12 +20,6 @@ import {
 } from '../lib/draft-template-store';
 import type { DraftTemplate } from '../lib/draft-template-types';
 
-const formatPeriod = (item: DraftTemplate): string => {
-  const start = item.periodStart || 'نامشخص';
-  if (!item.periodEnd) return `شروع: ${start}`;
-  return `شروع: ${start} | پایان: ${item.periodEnd}`;
-};
-
 export default function DraftTemplates() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -39,9 +32,7 @@ export default function DraftTemplates() {
     return templates.filter(
       (item) =>
         item.title.includes(needle) ||
-        item.description.includes(needle) ||
-        item.periodStart.includes(needle) ||
-        item.periodEnd.includes(needle),
+        item.description.includes(needle),
     );
   }, [search, templates]);
 
@@ -145,7 +136,7 @@ export default function DraftTemplates() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="جستجو در عنوان، توضیحات یا بازه زمانی..."
+            placeholder="جستجو در عنوان یا توضیحات..."
             className="w-full bg-slate-900/40 border border-white/5 hover:border-white/10 rounded-xl py-3 pr-10 pl-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
           />
         </div>
@@ -188,10 +179,6 @@ export default function DraftTemplates() {
                           </span>
                         </div>
 
-                        <div className="text-xs text-slate-400 flex items-center gap-2">
-                          <CalendarRange className="w-3.5 h-3.5" />
-                          <span>بازه زمانی: {formatPeriod(template)}</span>
-                        </div>
                         <p className="text-sm text-slate-300">{template.description || 'توضیحی ثبت نشده است.'}</p>
                       </div>
 

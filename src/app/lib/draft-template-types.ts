@@ -1,7 +1,10 @@
 export type TemplateStatus = 'active' | 'archived';
 export type PayrollInputMode = 'manual' | 'agreed';
+export type PayrollDraftKind = 'monthly_fixed' | 'daily_wage' | 'hourly' | 'project' | 'consulting';
 export type FixedAdjustmentKind = 'addition' | 'deduction';
 export type FixedAdjustmentCalcType = 'fixed' | 'base_wage_factor';
+export type EydiPayoutMode = 'monthly' | 'yearly';
+export type SeverancePayoutMode = 'monthly' | 'end_of_cooperation';
 
 export interface TaxBracket {
   id: string;
@@ -36,9 +39,12 @@ export interface DraftTemplateAttendance {
 
 export interface DraftTemplatePayroll {
   inputMode: PayrollInputMode;
+  draftKind: PayrollDraftKind;
   agreedWage: string;
   overMinWageBenefitTarget: string;
   monthlyRequiredHours: string;
+  hourlyRateOverrideDraft: string;
+  hourlyRateOverride: string;
 
   baseSalary: PayrollField;
   seniorityBase: PayrollField;
@@ -67,6 +73,8 @@ export interface DraftTemplatePayroll {
 
   eydi: PayrollField;
   severancePay: PayrollField;
+  eydiPayoutMode: EydiPayoutMode;
+  severancePayoutMode: SeverancePayoutMode;
 
   workerInsuranceRate: string;
   employerInsuranceRate: string;
@@ -83,9 +91,6 @@ export interface DraftTemplatePayroll {
 export interface DraftTemplate {
   id: string;
   title: string;
-  periodStart: string;
-  periodEnd: string;
-  isPeriodEndOpen: boolean;
   description: string;
   attendance: DraftTemplateAttendance;
   payroll: DraftTemplatePayroll;
@@ -105,9 +110,6 @@ const createPayrollField = (value = ''): PayrollField => ({
 export const createEmptyDraftTemplate = (): DraftTemplate => ({
   id: `tmpl-${Date.now()}`,
   title: '',
-  periodStart: '',
-  periodEnd: '',
-  isPeriodEndOpen: false,
   description: '',
   attendance: {
     monthlyLeaveCap: '',
@@ -116,9 +118,12 @@ export const createEmptyDraftTemplate = (): DraftTemplate => ({
   },
   payroll: {
     inputMode: 'manual',
+    draftKind: 'monthly_fixed',
     agreedWage: '',
     overMinWageBenefitTarget: '',
     monthlyRequiredHours: '',
+    hourlyRateOverrideDraft: '',
+    hourlyRateOverride: '',
 
     baseSalary: createPayrollField(),
     seniorityBase: createPayrollField(),
@@ -147,6 +152,8 @@ export const createEmptyDraftTemplate = (): DraftTemplate => ({
 
     eydi: createPayrollField('2'),
     severancePay: createPayrollField('1'),
+    eydiPayoutMode: 'yearly',
+    severancePayoutMode: 'end_of_cooperation',
 
     workerInsuranceRate: '7',
     employerInsuranceRate: '23',
@@ -175,9 +182,6 @@ export const createMockDraftTemplates = (): DraftTemplate[] => {
   const first = createEmptyDraftTemplate();
   first.id = 'tmpl-1001';
   first.title = 'قرارداد آزمایشی کارمندان اداری';
-  first.periodStart = '2025-03-21';
-  first.periodEnd = '';
-  first.isPeriodEndOpen = true;
   first.description = 'نسخه پیش‌نویس قرارداد سال جدید برای تیم اداری.';
   first.attendance.monthlyLeaveCap = '2.5';
   first.attendance.maxLeaveCarryToNextYear = '9';
@@ -188,9 +192,6 @@ export const createMockDraftTemplates = (): DraftTemplate[] => {
   const second = createEmptyDraftTemplate();
   second.id = 'tmpl-1002';
   second.title = 'پیش‌نویس قرارداد شیفتی واحد عملیات';
-  second.periodStart = '2025-05-01';
-  second.periodEnd = '2026-03-20';
-  second.isPeriodEndOpen = false;
   second.description = 'برای واحد عملیات با ساختار شیفت و اضافه‌کاری محدود.';
   second.attendance.monthlyLeaveCap = '2';
   second.attendance.maxLeaveCarryToNextYear = '6';

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ChevronRight, Lock, Plus, Save, Trash2 } from 'lucide-react';
+import { ChevronRight, Info, Lock, Plus, Save, Trash2 } from 'lucide-react';
 import {
   getDraftTemplateById,
   getPayrollPackageEnabled,
@@ -9,8 +9,11 @@ import {
 import {
   createEmptyDraftTemplate,
   type DraftTemplate,
+  type EydiPayoutMode,
   type FixedAdjustmentItem,
+  type PayrollDraftKind,
   type PayrollField,
+  type SeverancePayoutMode,
   type TaxBracket,
 } from '../lib/draft-template-types';
 
@@ -95,7 +98,6 @@ const JOB_BENEFITS: Array<{ key: PayrollFieldKey; label: string }> = [
 const TIME_COEFFS: Array<{ key: PayrollFieldKey; label: string }> = [
   { key: 'overtimeFactor', label: 'ضریب اضافه کاری' },
   { key: 'nightWorkFactor1', label: 'ضریب شب کاری' },
-  { key: 'nightWorkFactor2', label: 'ضریب شب کاری (نوع دوم)' },
   { key: 'holidayWorkFactor', label: 'ضریب تعطیل کاری' },
   { key: 'fridayWorkFactorWithOvertime', label: 'ضریب جمعه کاری' },
   { key: 'fridayWorkFactorWithoutOvertime', label: 'ضریب جمعه کاری بدون اضافه کاری' },
@@ -116,7 +118,7 @@ const LEGAL_FIELDS: Array<{ key: PayrollFieldKey; label: string }> = [
 const DEDUCTION_FIELDS: Array<{ key: PayrollScalarKey; label: string }> = [
   { key: 'workerInsuranceRate', label: 'نرخ بیمه سهم کارگر (%)' },
   { key: 'employerInsuranceRate', label: 'نرخ بیمه سهم کارفرما (%)' },
-  { key: 'unemploymentInsuranceRate', label: 'نرخ بیمه بیکاری (%)' },
+  { key: 'unemploymentInsuranceRate', label: 'نرخ بیمه بیکاری (%) (به عهده کارفرما)' },
   { key: 'insuranceCapMultiplier', label: 'ضریب سقف مشمول بیمه' },
   { key: 'monthlyTaxExemption', label: 'معافیت مالیاتی ماهانه' },
 ];
@@ -129,12 +131,83 @@ const OVER_MIN_WAGE_TARGET_LABELS: Record<string, string> = {
   otherBenefits: 'سایر مزایا',
 };
 
+const DRAFT_KIND_OPTIONS: Array<{ value: PayrollDraftKind; label: string; desc: string; enabled: boolean }> = [
+  { value: 'monthly_fixed', label: 'ثابت ماهیانه', desc: 'پرداخت ثابت ماهانه با مزد مبنا و مزایا', enabled: true },
+  { value: 'daily_wage', label: 'روزمزد', desc: 'پرداخت بر مبنای روزهای کارکرد', enabled: false },
+  { value: 'hourly', label: 'ساعتی', desc: 'پرداخت بر مبنای ساعات کارکرد', enabled: false },
+  { value: 'project', label: 'پروژه ای', desc: 'پرداخت توافقی بر اساس پروژه', enabled: false },
+  { value: 'consulting', label: 'مشاوره ای', desc: 'پرداخت بر اساس قرارداد مشاوره', enabled: false },
+];
+
+const ENABLED_DRAFT_KINDS = new Set<PayrollDraftKind>(DRAFT_KIND_OPTIONS.filter((item) => item.enabled).map((item) => item.value));
+
+const DRAFT_KIND_LABELS: Record<PayrollDraftKind, string> = {
+  monthly_fixed: 'ثابت ماهیانه',
+  daily_wage: 'روزمزد',
+  hourly: 'ساعتی',
+  project: 'پروژه ای',
+  consulting: 'مشاوره ای',
+};
+
+const BASE_FIELD_TOOLTIPS = {
+  title: 'عنوان قالب برای شناسایی نسخه پیش‌نویس قرارداد در سیستم استفاده می‌شود.',
+  description: 'توضیحات تکمیلی درباره کاربرد قالب؛ ثبت آن اختیاری است.',
+} as const;
+
+const ATTENDANCE_TOOLTIPS = {
+  monthlyLeaveCap: 'سقف مرخصی استحقاقی قابل استفاده در هر ماه برای این قالب قرارداد.',
+  maxLeaveCarryToNextYear: 'حداکثر مانده مرخصی که طبق سیاست شرکت/قوانین داخلی به سال بعد منتقل می‌شود.',
+  monthlyOvertimeCap: 'حداکثر ساعت اضافه‌کاری مجاز ماهانه برای جلوگیری از ثبت مازاد غیرمجاز.',
+} as const;
+
+const PAYROLL_FIELD_TOOLTIPS: Partial<Record<PayrollFieldKey, string>> = {
+  baseSalary: 'حقوق پایه ماهانه مطابق حکم/قرارداد که مبنای اصلی محاسبات مزدی است.',
+  seniorityBase: 'پایه سنوات ماهانه مطابق مقررات کار برای کارکنان مشمول سنوات.',
+  housingAllowance: 'حق مسکن مصوب شورای عالی کار (در صورت شمول).',
+  foodAllowance: 'بن خواربار/کارگری مصوب سالانه برای کارکنان مشمول.',
+  childAllowancePerChild: 'حق اولاد برای هر فرزند واجد شرایط طبق ضوابط قانون کار و تامین اجتماعی.',
+  marriageAllowance: 'مزیت/کمک‌هزینه تاهل در صورت اعمال در سیاست پرداخت شرکت.',
+  attractionAllowance: 'مزایای جذب/نگهداشت نیروی کار که شرکت به صورت حکمی تعریف می‌کند.',
+  managementAllowance: 'مزایای مرتبط با مسئولیت مدیریتی/سرپرستی.',
+  commuteAllowance: 'کمک‌هزینه ایاب و ذهاب در صورت پرداخت توسط کارفرما.',
+  hardshipAllowance: 'فوق‌العاده سختی کار در مشاغل واجد شرایط یا سیاست شرکت.',
+  otherBenefits: 'سایر مزایای ماهانه که در گروه‌های دیگر قرار نمی‌گیرند.',
+  overtimeFactor: 'ضریب محاسبه هر ساعت اضافه‌کاری نسبت به مزد ساعتی عادی.',
+  nightWorkFactor1: 'ضریب پرداخت کار در ساعات شب مطابق ضوابط/سیاست محاسبه انتخاب‌شده.',
+  holidayWorkFactor: 'ضریب پرداخت کار در روزهای تعطیل رسمی نسبت به مزد عادی.',
+  fridayWorkFactorWithOvertime: 'ضریب پرداخت جمعه‌کاری در حالتی که اضافه‌کاری نیز محاسبه می‌شود.',
+  fridayWorkFactorWithoutOvertime: 'ضریب پرداخت جمعه‌کاری بدون اعمال هم‌زمان اضافه‌کاری.',
+  morningEveningShiftPercent: 'درصد فوق‌العاده نوبت‌کاری برای الگوی صبح و عصر.',
+  morningEveningNightShiftPercent: 'درصد فوق‌العاده نوبت‌کاری برای الگوی صبح، عصر و شب.',
+  morningNightShiftPercent: 'درصد فوق‌العاده نوبت‌کاری برای الگوی صبح و شب.',
+  eveningNightShiftPercent: 'درصد فوق‌العاده نوبت‌کاری برای الگوی عصر و شب.',
+  eydi: 'ضریب/مقدار مبنای محاسبه عیدی سالانه طبق حدود قانونی و سیاست شرکت.',
+  severancePay: 'ضریب/مقدار مبنای محاسبه حق سنوات (مزایای پایان کار).',
+};
+
+const PAYROLL_SCALAR_TOOLTIPS: Partial<Record<PayrollScalarKey, string>> = {
+  agreedWage: 'مبلغ دریافتی توافقی ماهانه برای مقایسه با دریافتی قانونی 30 روزه.',
+  monthlyRequiredHours: 'ساعت موظفی ماهانه برای محاسبه نرخ ساعتی و تبدیل‌های روزانه/هفتگی.',
+  workerInsuranceRate: 'نرخ بیمه سهم کارگر که از حقوق کارگر کسر می‌شود.',
+  employerInsuranceRate: 'نرخ بیمه سهم کارفرما که توسط کارفرما پرداخت می‌شود.',
+  unemploymentInsuranceRate: 'نرخ بیمه بیکاری (به عهده کارفرما) در محاسبات بیمه.',
+  insuranceCapMultiplier: 'ضریب سقف دستمزد مشمول بیمه نسبت به حداقل مزد مصوب.',
+  monthlyTaxExemption: 'سقف معافیت مالیاتی ماهانه قبل از اعمال پله‌های مالیات.',
+  overMinWageBenefitTarget: 'محل ثبت مازاد مبلغ توافقی نسبت به دریافتی قانونی.',
+};
+
 const AGREED_TARGETS = new Set(['attractionAllowance', 'managementAllowance', 'commuteAllowance', 'hardshipAllowance', 'otherBenefits']);
 
 const LEGAL_TOTAL_COMPONENT_KEYS: PayrollFieldKey[] = [
   ...MAIN_COMPONENTS.map((item) => item.key),
   ...JOB_BENEFITS.map((item) => item.key),
   'otherBenefits',
+];
+
+const DERIVED_FROM_BASE_WAGE_FIELD_KEYS: PayrollFieldKey[] = [
+  ...TIME_COEFFS.map((item) => item.key),
+  ...SHIFT_BENEFITS.map((item) => item.key),
+  ...LEGAL_FIELDS.map((item) => item.key),
 ];
 
 const ALL_PAYROLL_FIELD_KEYS: PayrollFieldKey[] = [
@@ -149,6 +222,32 @@ const toNumber = (value: string): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const formatMoney = (value: number): string => `${Math.round(value).toLocaleString('fa-IR')} تومان`;
+
+const formatHourMinute = (hours: number): string => {
+  const totalMinutes = Math.max(0, Math.round(hours * 60));
+  const hh = Math.floor(totalMinutes / 60);
+  const mm = totalMinutes % 60;
+  return `${hh.toLocaleString('fa-IR')} ساعت و ${mm.toLocaleString('fa-IR')} دقیقه`;
+};
+
+const estimateMonthlyTax = (gross: number, exemption: string, brackets: TaxBracket[]): number => {
+  const ex = Math.max(0, toNumber(exemption));
+  if (gross <= ex) return 0;
+  let tax = 0;
+  for (const bracket of brackets) {
+    const rate = toNumber(bracket.rate);
+    if (rate <= 0) continue;
+    const start = Math.max(ex, toNumber(bracket.start));
+    const rawEnd = bracket.end ? toNumber(bracket.end) : Number.POSITIVE_INFINITY;
+    const end = rawEnd > start ? rawEnd : Number.POSITIVE_INFINITY;
+    const taxable = Math.max(0, Math.min(gross, end) - start);
+    tax += taxable * (rate / 100);
+    if (gross <= end) break;
+  }
+  return Math.max(0, tax);
+};
+
 const createFixedAdjustment = (kind: 'addition' | 'deduction'): FixedAdjustmentItem => ({
   id: `adj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
   title: '',
@@ -160,12 +259,24 @@ const createFixedAdjustment = (kind: 'addition' | 'deduction'): FixedAdjustmentI
   baseWage: false,
 });
 
+const normalizeBaseWageFlags = (payroll: DraftTemplate['payroll']): DraftTemplate['payroll'] => {
+  const next = { ...payroll };
+  DERIVED_FROM_BASE_WAGE_FIELD_KEYS.forEach((key) => {
+    next[key] = { ...next[key], baseWage: false };
+  });
+  next.fixedAdjustments = next.fixedAdjustments.map((item) =>
+    item.calcType === 'base_wage_factor' ? { ...item, baseWage: false } : item,
+  );
+  return next;
+};
+
 const hydrateTemplate = (input: DraftTemplate): DraftTemplate => {
   const base = createEmptyDraftTemplate();
   const rawPayroll = input.payroll ?? base.payroll;
   const mergedPayroll = {
     ...base.payroll,
     ...rawPayroll,
+    draftKind: ENABLED_DRAFT_KINDS.has(rawPayroll.draftKind) ? rawPayroll.draftKind : 'monthly_fixed',
     fixedAdjustments: Array.isArray(rawPayroll.fixedAdjustments)
       ? rawPayroll.fixedAdjustments.map((item) => ({
           ...item,
@@ -189,7 +300,7 @@ const hydrateTemplate = (input: DraftTemplate): DraftTemplate => {
     ...base,
     ...input,
     attendance: { ...base.attendance, ...input.attendance },
-    payroll: payrollWithFields,
+    payroll: normalizeBaseWageFlags(payrollWithFields),
     savedSections: { ...base.savedSections, ...input.savedSections },
   };
 };
@@ -244,8 +355,6 @@ const calculateAgreedAnalysis = (template: DraftTemplate): AgreedAnalysis => {
 
 const requiredBaseError = (item: DraftTemplate): string | null => {
   if (!item.title.trim()) return 'عنوان اطلاعات پایه الزامی است.';
-  if (!item.periodStart) return 'تاریخ شروع بازه زمانی الزامی است.';
-  if (!item.description.trim()) return 'توضیحات اطلاعات پایه الزامی است.';
   return null;
 };
 
@@ -282,6 +391,17 @@ export default function DraftTemplateEditor() {
   const baseError = useMemo(() => requiredBaseError(template), [template]);
   const baseReady = !baseError;
   const agreedAnalysis = useMemo(() => calculateAgreedAnalysis(template), [template]);
+  const shiftCoverage = useMemo(
+    () => ({
+      insurance: SHIFT_BENEFITS.every((item) => template.payroll[item.key].insurance),
+      tax: SHIFT_BENEFITS.every((item) => template.payroll[item.key].tax),
+    }),
+    [template.payroll],
+  );
+  const insuranceRateTotal =
+    toNumber(template.payroll.workerInsuranceRate) +
+    toNumber(template.payroll.employerInsuranceRate) +
+    toNumber(template.payroll.unemploymentInsuranceRate);
 
   if (isEdit && !existing) {
     return (
@@ -314,6 +434,7 @@ export default function DraftTemplateEditor() {
   };
 
   const setPayrollField = (key: PayrollFieldKey, patch: Partial<PayrollField>) => {
+    const lockBaseWage = DERIVED_FROM_BASE_WAGE_FIELD_KEYS.includes(key);
     setTemplate((prev) => ({
       ...prev,
       payroll: {
@@ -321,9 +442,23 @@ export default function DraftTemplateEditor() {
         [key]: {
           ...prev.payroll[key],
           ...patch,
+          ...(lockBaseWage ? { baseWage: false } : {}),
         },
       },
     }));
+  };
+
+  const setShiftCoverage = (kind: 'insurance' | 'tax', value: boolean) => {
+    setTemplate((prev) => {
+      const nextPayroll = { ...prev.payroll };
+      SHIFT_BENEFITS.forEach((item) => {
+        nextPayroll[item.key] = {
+          ...nextPayroll[item.key],
+          [kind]: value,
+        };
+      });
+      return { ...prev, payroll: nextPayroll };
+    });
   };
 
   const addFixedAdjustment = (kind: 'addition' | 'deduction') => {
@@ -427,13 +562,21 @@ export default function DraftTemplateEditor() {
       }
     }
 
+    const normalizedPayroll = normalizeBaseWageFlags({
+      ...template.payroll,
+      taxBrackets: normalizeTaxBrackets(template.payroll.monthlyTaxExemption, template.payroll.taxBrackets),
+    });
+    const payrollForSave =
+      section === 'payroll_setup'
+        ? {
+            ...normalizedPayroll,
+            hourlyRateOverride: normalizedPayroll.hourlyRateOverrideDraft.trim(),
+          }
+        : normalizedPayroll;
+
     const prepared: DraftTemplate = {
       ...template,
-      isPeriodEndOpen: !template.periodEnd,
-      payroll: {
-        ...template.payroll,
-        taxBrackets: normalizeTaxBrackets(template.payroll.monthlyTaxExemption, template.payroll.taxBrackets),
-      },
+      payroll: payrollForSave,
       updatedAt: new Date().toISOString(),
       savedSections: {
         ...template.savedSections,
@@ -446,10 +589,36 @@ export default function DraftTemplateEditor() {
     if (!isEdit) navigate(`/draft-templates/${prepared.id}`, { replace: true });
   };
 
-  const monthly = Number(template.payroll.monthlyRequiredHours || 0);
-  const perDay = monthly ? (monthly / 30).toFixed(2) : '0';
-  const perWeek = monthly ? ((monthly * 12) / 52).toFixed(2) : '0';
-  const perYear = monthly ? (monthly * 12).toFixed(2) : '0';
+  const monthly = toNumber(template.payroll.monthlyRequiredHours);
+  const perDay = monthly ? formatHourMinute(monthly / 30) : '۰ ساعت و ۰ دقیقه';
+  const perWeek = monthly ? formatHourMinute((monthly / 30) * 6) : '۰ ساعت و ۰ دقیقه';
+  const baseWageFromFields = ALL_PAYROLL_FIELD_KEYS.reduce(
+    (sum, key) => sum + (template.payroll[key].baseWage ? agreedAnalysis.finalFieldValues[key] : 0),
+    0,
+  );
+  const baseWageFromFixedAdjustments = template.payroll.fixedAdjustments.reduce((sum, item) => {
+    if (!item.baseWage || item.calcType !== 'fixed') return sum;
+    const signed = item.kind === 'deduction' ? -toNumber(item.value) : toNumber(item.value);
+    return sum + signed;
+  }, 0);
+  const baseWageMonthly = Math.max(0, baseWageFromFields + baseWageFromFixedAdjustments);
+  const legalGross30 = LEGAL_TOTAL_COMPONENT_KEYS.reduce((sum, key) => sum + toNumber(template.payroll[key].value), 0);
+  const grossPay30 =
+    template.payroll.inputMode === 'agreed' && toNumber(template.payroll.agreedWage) > 0
+      ? toNumber(template.payroll.agreedWage)
+      : legalGross30;
+  const calculatedHourlyRate = monthly > 0 ? baseWageMonthly / monthly : 0;
+  const workerInsuranceAmount = grossPay30 * (toNumber(template.payroll.workerInsuranceRate) / 100);
+  const estimatedTaxAmount = estimateMonthlyTax(
+    grossPay30,
+    template.payroll.monthlyTaxExemption,
+    template.payroll.taxBrackets,
+  );
+  const netPay30 = Math.max(0, grossPay30 - workerInsuranceAmount - estimatedTaxAmount);
+  const hasAppliedHourlyOverride =
+    Boolean(template.savedSections.payroll_setup) && Boolean(template.payroll.hourlyRateOverride.trim());
+  const appliedHourlyRate = toNumber(template.payroll.hourlyRateOverride);
+  const showSectionsAfterBase = isEdit || baseReady;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -483,12 +652,12 @@ export default function DraftTemplateEditor() {
 
         <SectionCard
           title="اطلاعات پایه"
-          subtitle="تعریف عنوان، بازه زمانی و توضیحات"
+          subtitle="تعریف عنوان و توضیحات"
           savedAt={template.savedSections.base}
           onSave={() => saveSection('base')}
         >
           <div className="grid grid-cols-1 gap-4">
-            <Field label="عنوان" required>
+            <Field label="عنوان" required tooltip={BASE_FIELD_TOOLTIPS.title}>
               <input
                 type="text"
                 value={template.title}
@@ -496,32 +665,8 @@ export default function DraftTemplateEditor() {
                 className="input-field"
               />
             </Field>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="شروع" required>
-                <input
-                  type="date"
-                  value={template.periodStart}
-                  onChange={(e) => setTemplate((prev) => ({ ...prev, periodStart: e.target.value }))}
-                  className="input-field"
-                />
-              </Field>
-              <Field label="پایان">
-                <input
-                  type="date"
-                  value={template.periodEnd}
-                  onChange={(e) =>
-                    setTemplate((prev) => ({
-                      ...prev,
-                      periodEnd: e.target.value,
-                      isPeriodEndOpen: !e.target.value,
-                    }))
-                  }
-                  className="input-field"
-                />
-              </Field>
-            </div>
             <div>
-              <Field label="توضیحات" required>
+              <Field label="توضیحات" tooltip={BASE_FIELD_TOOLTIPS.description}>
                 <textarea
                   value={template.description}
                   onChange={(e) => setTemplate((prev) => ({ ...prev, description: e.target.value }))}
@@ -532,6 +677,8 @@ export default function DraftTemplateEditor() {
           </div>
         </SectionCard>
 
+        {showSectionsAfterBase ? (
+          <>
         <SectionCard
           title="اطلاعات حضور و غیاب"
           subtitle="تنظیم مرخصی و اضافه‌کاری"
@@ -540,7 +687,7 @@ export default function DraftTemplateEditor() {
           disabledSave={!baseReady}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field label="سقف مرخصی ماهیانه">
+            <Field label="سقف مرخصی ماهیانه" tooltip={ATTENDANCE_TOOLTIPS.monthlyLeaveCap}>
               <input
                 type="number"
                 value={template.attendance.monthlyLeaveCap}
@@ -553,7 +700,7 @@ export default function DraftTemplateEditor() {
                 className="input-field"
               />
             </Field>
-            <Field label="حداکثر انتقال مرخصی به سال بعد">
+            <Field label="حداکثر انتقال مرخصی به سال بعد" tooltip={ATTENDANCE_TOOLTIPS.maxLeaveCarryToNextYear}>
               <input
                 type="number"
                 value={template.attendance.maxLeaveCarryToNextYear}
@@ -566,7 +713,7 @@ export default function DraftTemplateEditor() {
                 className="input-field"
               />
             </Field>
-            <Field label="سقف ساعت اضافه کاری ماهانه">
+            <Field label="سقف ساعت اضافه کاری ماهانه" tooltip={ATTENDANCE_TOOLTIPS.monthlyOvertimeCap}>
               <input
                 type="number"
                 value={template.attendance.monthlyOvertimeCap}
@@ -618,31 +765,110 @@ export default function DraftTemplateEditor() {
               savedAt={template.savedSections.payroll_setup}
               onSave={() => saveSection('payroll_setup')}
               disabledSave={!baseReady}
+              sticky
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="bg-slate-800/50 border border-white/5 rounded-xl p-3 text-sm text-slate-200 flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="input-mode"
-                    checked={template.payroll.inputMode === 'manual'}
-                    onChange={() => setTemplate((prev) => ({ ...prev, payroll: { ...prev.payroll, inputMode: 'manual' } }))}
-                  />
-                  ورود دستی همه اطلاعات
-                </label>
-                <label className="bg-slate-800/50 border border-white/5 rounded-xl p-3 text-sm text-slate-200 flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="input-mode"
-                    checked={template.payroll.inputMode === 'agreed'}
-                    onChange={() => setTemplate((prev) => ({ ...prev, payroll: { ...prev.payroll, inputMode: 'agreed' } }))}
-                  />
-                  تعیین حقوق توافقی
-                </label>
+              <div className="mb-4">
+                <div className="text-sm font-bold text-white mb-2">نوع پیش‌نویس حقوق و دستمزد</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+                  {DRAFT_KIND_OPTIONS.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      disabled={!item.enabled}
+                      onClick={() =>
+                        item.enabled &&
+                        setTemplate((prev) => ({
+                          ...prev,
+                          payroll: { ...prev.payroll, draftKind: item.value },
+                        }))
+                      }
+                      className={`rounded-xl border p-3 text-right transition-all ${
+                        template.payroll.draftKind === item.value
+                          ? 'bg-indigo-500/15 border-indigo-400/60 shadow-lg shadow-indigo-500/20'
+                          : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                      } ${!item.enabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-bold text-white">{item.label}</div>
+                        {!item.enabled && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-200">
+                            در حال توسعه
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1 leading-5">{item.desc}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setTemplate((prev) => ({ ...prev, payroll: { ...prev.payroll, inputMode: 'manual' } }))}
+                  className={`rounded-2xl border p-4 text-right transition-all ${
+                    template.payroll.inputMode === 'manual'
+                      ? 'bg-indigo-500/15 border-indigo-400/60 shadow-lg shadow-indigo-500/20'
+                      : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-white">ورود دستی همه اطلاعات</div>
+                  <div className="text-xs text-slate-400 mt-1">تمام بخش‌ها قابل ویرایش هستند.</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplate((prev) => ({ ...prev, payroll: { ...prev.payroll, inputMode: 'agreed' } }))}
+                  className={`rounded-2xl border p-4 text-right transition-all ${
+                    template.payroll.inputMode === 'agreed'
+                      ? 'bg-indigo-500/15 border-indigo-400/60 shadow-lg shadow-indigo-500/20'
+                      : 'bg-slate-800/50 border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <div className="text-sm font-bold text-white">تعیین حقوق توافقی</div>
+                  <div className="text-xs text-slate-400 mt-1">فقط گزارش نمایش داده می‌شود.</div>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
+                <div className="bg-slate-800/50 border border-white/10 rounded-xl p-3 space-y-2">
+                  <div className="text-xs text-slate-400">نرخ ساعتی (مزد مبنا ÷ ساعت موظفی ماه)</div>
+                  {hasAppliedHourlyOverride ? (
+                    <div className="space-y-1">
+                      <div className="text-xs text-slate-500 line-through">
+                        {calculatedHourlyRate.toLocaleString('fa-IR', { maximumFractionDigits: 2 })} تومان
+                      </div>
+                      <div className="text-sm font-bold text-emerald-300">
+                        {appliedHourlyRate.toLocaleString('fa-IR', { maximumFractionDigits: 2 })} تومان
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm font-bold text-white">
+                      {calculatedHourlyRate.toLocaleString('fa-IR', { maximumFractionDigits: 2 })} تومان
+                    </div>
+                  )}
+                  <div className="text-[11px] text-slate-500">مزد مبنا ماهانه: {formatMoney(baseWageMonthly)}</div>
+                  <input
+                    type="number"
+                    value={template.payroll.hourlyRateOverrideDraft}
+                    onChange={(e) =>
+                      setTemplate((prev) => ({
+                        ...prev,
+                        payroll: { ...prev.payroll, hourlyRateOverrideDraft: e.target.value },
+                      }))
+                    }
+                    placeholder="ویرایش دستی نرخ ساعتی"
+                    className="input-field"
+                  />
+                  <p className="text-[11px] text-slate-500">بعد از «ذخیره این بخش» مقدار جدید اعمال می‌شود.</p>
+                </div>
+                <MiniStat label="حقوق ناخالص پرداختی (30 روز)" value={formatMoney(grossPay30)} />
+                <MiniStat label="حقوق خالص پرداختی (30 روز)" value={formatMoney(netPay30)} />
+              </div>
+
               {template.payroll.inputMode === 'agreed' && (
                 <div className="space-y-4 mt-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Field label="حقوق توافقی">
+                    <Field label="حقوق توافقی" tooltip={PAYROLL_SCALAR_TOOLTIPS.agreedWage}>
                       <input
                         type="number"
                         value={template.payroll.agreedWage}
@@ -650,7 +876,7 @@ export default function DraftTemplateEditor() {
                         className="input-field"
                       />
                     </Field>
-                    <Field label="مازاد حد اداره کار در کدام مزایا ثبت شود؟">
+                    <Field label="مازاد حد اداره کار در کدام مزایا ثبت شود؟" tooltip={PAYROLL_SCALAR_TOOLTIPS.overMinWageBenefitTarget}>
                       <select
                         value={template.payroll.overMinWageBenefitTarget}
                         onChange={(e) => setPayrollScalar('overMinWageBenefitTarget', e.target.value)}
@@ -717,11 +943,13 @@ export default function DraftTemplateEditor() {
                                 <select
                                   className="input-field"
                                   value={item.calcType}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
+                                    const calcType = e.target.value as FixedAdjustmentItem['calcType'];
                                     updateFixedAdjustment(item.id, {
-                                      calcType: e.target.value as FixedAdjustmentItem['calcType'],
-                                    })
-                                  }
+                                      calcType,
+                                      baseWage: calcType === 'base_wage_factor' ? false : item.baseWage,
+                                    });
+                                  }}
                                 >
                                   <option value="fixed">مبلغ ثابت</option>
                                   <option value="base_wage_factor">ضریبی از مزد مبنا</option>
@@ -744,31 +972,23 @@ export default function DraftTemplateEditor() {
                                 حذف
                               </button>
                             </div>
-                            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300">
-                              <label className="flex items-center gap-1.5">
-                                <input
-                                  type="checkbox"
-                                  checked={item.insurance}
-                                  onChange={(e) => updateFixedAdjustment(item.id, { insurance: e.target.checked })}
-                                />
-                                مشمول بیمه
-                              </label>
-                              <label className="flex items-center gap-1.5">
-                                <input
-                                  type="checkbox"
-                                  checked={item.tax}
-                                  onChange={(e) => updateFixedAdjustment(item.id, { tax: e.target.checked })}
-                                />
-                                مشمول مالیات
-                              </label>
-                              <label className="flex items-center gap-1.5">
-                                <input
-                                  type="checkbox"
-                                  checked={item.baseWage}
-                                  onChange={(e) => updateFixedAdjustment(item.id, { baseWage: e.target.checked })}
-                                />
-                                قابل احتساب در مزد مبنا
-                              </label>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                              <ToggleChip
+                                checked={item.insurance}
+                                label="مشمول بیمه"
+                                onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
+                              />
+                              <ToggleChip
+                                checked={item.tax}
+                                label="مشمول مالیات"
+                                onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
+                              />
+                              <ToggleChip
+                                checked={item.calcType === 'base_wage_factor' ? false : item.baseWage}
+                                label="قابل احتساب در مزد مبنا"
+                                onChange={(checked) => updateFixedAdjustment(item.id, { baseWage: checked })}
+                                disabled={item.calcType === 'base_wage_factor'}
+                              />
                             </div>
                           </div>
                         ))}
@@ -817,11 +1037,13 @@ export default function DraftTemplateEditor() {
                                 <select
                                   className="input-field"
                                   value={item.calcType}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
+                                    const calcType = e.target.value as FixedAdjustmentItem['calcType'];
                                     updateFixedAdjustment(item.id, {
-                                      calcType: e.target.value as FixedAdjustmentItem['calcType'],
-                                    })
-                                  }
+                                      calcType,
+                                      baseWage: calcType === 'base_wage_factor' ? false : item.baseWage,
+                                    });
+                                  }}
                                 >
                                   <option value="fixed">مبلغ ثابت</option>
                                   <option value="base_wage_factor">ضریبی از مزد مبنا</option>
@@ -844,31 +1066,23 @@ export default function DraftTemplateEditor() {
                                 حذف
                               </button>
                             </div>
-                            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300">
-                              <label className="flex items-center gap-1.5">
-                                <input
-                                  type="checkbox"
-                                  checked={item.insurance}
-                                  onChange={(e) => updateFixedAdjustment(item.id, { insurance: e.target.checked })}
-                                />
-                                مشمول بیمه
-                              </label>
-                              <label className="flex items-center gap-1.5">
-                                <input
-                                  type="checkbox"
-                                  checked={item.tax}
-                                  onChange={(e) => updateFixedAdjustment(item.id, { tax: e.target.checked })}
-                                />
-                                مشمول مالیات
-                              </label>
-                              <label className="flex items-center gap-1.5">
-                                <input
-                                  type="checkbox"
-                                  checked={item.baseWage}
-                                  onChange={(e) => updateFixedAdjustment(item.id, { baseWage: e.target.checked })}
-                                />
-                                قابل احتساب در مزد مبنا
-                              </label>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                              <ToggleChip
+                                checked={item.insurance}
+                                label="مشمول بیمه"
+                                onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
+                              />
+                              <ToggleChip
+                                checked={item.tax}
+                                label="مشمول مالیات"
+                                onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
+                              />
+                              <ToggleChip
+                                checked={item.calcType === 'base_wage_factor' ? false : item.baseWage}
+                                label="قابل احتساب در مزد مبنا"
+                                onChange={(checked) => updateFixedAdjustment(item.id, { baseWage: checked })}
+                                disabled={item.calcType === 'base_wage_factor'}
+                              />
                             </div>
                           </div>
                         ))}
@@ -883,7 +1097,6 @@ export default function DraftTemplateEditor() {
                 agreedAnalysis={agreedAnalysis}
                 perDay={perDay}
                 perWeek={perWeek}
-                perYear={perYear}
               />
             ) : (
               <>
@@ -894,7 +1107,7 @@ export default function DraftTemplateEditor() {
                   onSave={() => saveSection('payroll_main')}
                   disabledSave={!baseReady}
                 >
-                  <Field label="ساعت موظفی در ماه (برای محاسبه نرخ ساعتی)">
+                  <Field label="ساعت موظفی در ماه (برای محاسبه نرخ ساعتی)" tooltip={PAYROLL_SCALAR_TOOLTIPS.monthlyRequiredHours}>
                     <input
                       type="number"
                       value={template.payroll.monthlyRequiredHours}
@@ -903,15 +1116,15 @@ export default function DraftTemplateEditor() {
                     />
                   </Field>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-3">
-                    <MiniStat label="معادل روزانه" value={`${perDay} ساعت`} />
-                    <MiniStat label="معادل هفتگی" value={`${perWeek} ساعت`} />
-                    <MiniStat label="معادل سالانه" value={`${perYear} ساعت`} />
+                    <MiniStat label="معادل روزانه" value={perDay} />
+                    <MiniStat label="معادل هفتگی (بر مبنای 6 روز)" value={perWeek} />
                   </div>
                   <div className="space-y-3">
                     {MAIN_COMPONENTS.map((item) => (
                       <PayrollFieldRow
                         key={item.key}
                         label={item.label}
+                        tooltip={PAYROLL_FIELD_TOOLTIPS[item.key]}
                         field={template.payroll[item.key]}
                         onChange={(patch) => setPayrollField(item.key, patch)}
                       />
@@ -931,6 +1144,7 @@ export default function DraftTemplateEditor() {
                       <PayrollFieldRow
                         key={item.key}
                         label={item.label}
+                        tooltip={PAYROLL_FIELD_TOOLTIPS[item.key]}
                         field={template.payroll[item.key]}
                         onChange={(patch) => setPayrollField(item.key, patch)}
                       />
@@ -947,6 +1161,7 @@ export default function DraftTemplateEditor() {
                 >
                   <PayrollFieldRow
                     label="سایر مزایا"
+                    tooltip={PAYROLL_FIELD_TOOLTIPS.otherBenefits}
                     field={template.payroll.otherBenefits}
                     onChange={(patch) => setPayrollField('otherBenefits', patch)}
                   />
@@ -1012,11 +1227,13 @@ export default function DraftTemplateEditor() {
                             <select
                               className="input-field"
                               value={item.calcType}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                const calcType = e.target.value as FixedAdjustmentItem['calcType'];
                                 updateFixedAdjustment(item.id, {
-                                  calcType: e.target.value as FixedAdjustmentItem['calcType'],
-                                })
-                              }
+                                  calcType,
+                                  baseWage: calcType === 'base_wage_factor' ? false : item.baseWage,
+                                });
+                              }}
                             >
                               <option value="fixed">مبلغ ثابت</option>
                               <option value="base_wage_factor">ضریبی از مزد مبنا</option>
@@ -1039,31 +1256,23 @@ export default function DraftTemplateEditor() {
                             حذف
                           </button>
                         </div>
-                        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300">
-                          <label className="flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={item.insurance}
-                              onChange={(e) => updateFixedAdjustment(item.id, { insurance: e.target.checked })}
-                            />
-                            مشمول بیمه
-                          </label>
-                          <label className="flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={item.tax}
-                              onChange={(e) => updateFixedAdjustment(item.id, { tax: e.target.checked })}
-                            />
-                            مشمول مالیات
-                          </label>
-                          <label className="flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={item.baseWage}
-                              onChange={(e) => updateFixedAdjustment(item.id, { baseWage: e.target.checked })}
-                            />
-                            قابل احتساب در مزد مبنا
-                          </label>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                          <ToggleChip
+                            checked={item.insurance}
+                            label="مشمول بیمه"
+                            onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
+                          />
+                          <ToggleChip
+                            checked={item.tax}
+                            label="مشمول مالیات"
+                            onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
+                          />
+                          <ToggleChip
+                            checked={item.calcType === 'base_wage_factor' ? false : item.baseWage}
+                            label="قابل احتساب در مزد مبنا"
+                            onChange={(checked) => updateFixedAdjustment(item.id, { baseWage: checked })}
+                            disabled={item.calcType === 'base_wage_factor'}
+                          />
                         </div>
                       </div>
                     ))}
@@ -1082,7 +1291,9 @@ export default function DraftTemplateEditor() {
                       <PayrollFieldRow
                         key={item.key}
                         label={item.label}
+                        tooltip={PAYROLL_FIELD_TOOLTIPS[item.key]}
                         field={template.payroll[item.key]}
+                        allowBaseWageToggle={false}
                         onChange={(patch) => setPayrollField(item.key, patch)}
                       />
                     ))}
@@ -1096,12 +1307,51 @@ export default function DraftTemplateEditor() {
                   onSave={() => saveSection('payroll_shift')}
                   disabledSave={!baseReady}
                 >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setShiftCoverage('insurance', !shiftCoverage.insurance)}
+                      className={`rounded-xl border p-3 text-right transition-all ${
+                        shiftCoverage.insurance
+                          ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-100'
+                          : 'bg-rose-500/15 border-rose-400/50 text-rose-100'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold">
+                        مشمول بیمه {shiftCoverage.insurance ? 'فعال' : 'غیرفعال'}
+                      </div>
+                      <div className="text-xs opacity-80 mt-1">این تنظیم برای تمام آیتم‌های نوبت‌کاری اعمال می‌شود.</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShiftCoverage('tax', !shiftCoverage.tax)}
+                      className={`rounded-xl border p-3 text-right transition-all ${
+                        shiftCoverage.tax
+                          ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-100'
+                          : 'bg-rose-500/15 border-rose-400/50 text-rose-100'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold">
+                        مشمول مالیات {shiftCoverage.tax ? 'فعال' : 'غیرفعال'}
+                      </div>
+                      <div className="text-xs opacity-80 mt-1">این تنظیم برای تمام آیتم‌های نوبت‌کاری اعمال می‌شود.</div>
+                    </button>
+                  </div>
+                  {(!shiftCoverage.insurance || !shiftCoverage.tax) && (
+                    <div className="mb-3 text-xs text-rose-200 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3">
+                      هشدار: غیرفعال کردن بیمه یا مالیات در نوبت‌کاری می‌تواند منجر به جریمه مالیاتی شود.
+                    </div>
+                  )}
                   <div className="space-y-3">
                     {SHIFT_BENEFITS.map((item) => (
                       <PayrollFieldRow
                         key={item.key}
                         label={item.label}
+                        tooltip={PAYROLL_FIELD_TOOLTIPS[item.key]}
                         field={template.payroll[item.key]}
+                        allowInsuranceToggle={false}
+                        allowTaxToggle={false}
+                        allowBaseWageToggle={false}
                         onChange={(patch) => setPayrollField(item.key, patch)}
                       />
                     ))}
@@ -1118,15 +1368,97 @@ export default function DraftTemplateEditor() {
                   <p className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-3">
                     عیدی پیش‌فرض: حداقل دو برابر آخرین مزد مبنا و حداکثر معادل 90 روز حداقل مزد روزانه. قابل ویرایش است.
                   </p>
-                  <div className="space-y-3">
-                    {LEGAL_FIELDS.map((item) => (
+                  <div className="space-y-4">
+                    <div className="space-y-3">
                       <PayrollFieldRow
-                        key={item.key}
-                        label={item.label}
-                        field={template.payroll[item.key]}
-                        onChange={(patch) => setPayrollField(item.key, patch)}
+                        label="عیدی"
+                        tooltip={PAYROLL_FIELD_TOOLTIPS.eydi}
+                        field={template.payroll.eydi}
+                        allowBaseWageToggle={false}
+                        onChange={(patch) => setPayrollField('eydi', patch)}
                       />
-                    ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTemplate((prev) => ({
+                              ...prev,
+                              payroll: { ...prev.payroll, eydiPayoutMode: 'monthly' as EydiPayoutMode },
+                            }))
+                          }
+                          className={`rounded-xl border p-3 text-sm text-right transition-all ${
+                            template.payroll.eydiPayoutMode === 'monthly'
+                              ? 'bg-indigo-500/15 border-indigo-400/60 text-white'
+                              : 'bg-slate-800/40 border-white/10 text-slate-300 hover:border-white/20'
+                          }`}
+                        >
+                          پرداخت ماهانه
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTemplate((prev) => ({
+                              ...prev,
+                              payroll: { ...prev.payroll, eydiPayoutMode: 'yearly' as EydiPayoutMode },
+                            }))
+                          }
+                          className={`rounded-xl border p-3 text-sm text-right transition-all ${
+                            template.payroll.eydiPayoutMode === 'yearly'
+                              ? 'bg-indigo-500/15 border-indigo-400/60 text-white'
+                              : 'bg-slate-800/40 border-white/10 text-slate-300 hover:border-white/20'
+                          }`}
+                        >
+                          پرداخت سالانه
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <PayrollFieldRow
+                        label="حق سنوات"
+                        tooltip={PAYROLL_FIELD_TOOLTIPS.severancePay}
+                        field={template.payroll.severancePay}
+                        allowBaseWageToggle={false}
+                        onChange={(patch) => setPayrollField('severancePay', patch)}
+                      />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTemplate((prev) => ({
+                              ...prev,
+                              payroll: { ...prev.payroll, severancePayoutMode: 'monthly' as SeverancePayoutMode },
+                            }))
+                          }
+                          className={`rounded-xl border p-3 text-sm text-right transition-all ${
+                            template.payroll.severancePayoutMode === 'monthly'
+                              ? 'bg-indigo-500/15 border-indigo-400/60 text-white'
+                              : 'bg-slate-800/40 border-white/10 text-slate-300 hover:border-white/20'
+                          }`}
+                        >
+                          پرداخت ماهانه
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTemplate((prev) => ({
+                              ...prev,
+                              payroll: {
+                                ...prev.payroll,
+                                severancePayoutMode: 'end_of_cooperation' as SeverancePayoutMode,
+                              },
+                            }))
+                          }
+                          className={`rounded-xl border p-3 text-sm text-right transition-all ${
+                            template.payroll.severancePayoutMode === 'end_of_cooperation'
+                              ? 'bg-indigo-500/15 border-indigo-400/60 text-white'
+                              : 'bg-slate-800/40 border-white/10 text-slate-300 hover:border-white/20'
+                          }`}
+                        >
+                          پرداخت پایان همکاری
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </SectionCard>
 
@@ -1137,9 +1469,19 @@ export default function DraftTemplateEditor() {
                   onSave={() => saveSection('payroll_deductions')}
                   disabledSave={!baseReady}
                 >
+                  <div className="mb-3 text-xs text-slate-200 bg-slate-800/50 border border-white/10 rounded-lg p-3">
+                    سهم بیمه کارگر و کارفرما سرجمع باید 30 درصد باشد.
+                  </div>
+                  {insuranceRateTotal !== 30 && (
+                    <div className="mb-3 text-xs bg-rose-500/10 border border-rose-500/30 text-rose-200 rounded-lg p-3">
+                      {insuranceRateTotal < 30
+                        ? `هشدار: جمع نرخ بیمه‌ها ${insuranceRateTotal}٪ است و کمتر از 30٪ می‌باشد.`
+                        : `هشدار: جمع نرخ بیمه‌ها ${insuranceRateTotal}٪ است و بیشتر از 30٪ می‌باشد.`}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     {DEDUCTION_FIELDS.map((item) => (
-                      <Field key={item.key} label={item.label}>
+                      <Field key={item.key} label={item.label} tooltip={PAYROLL_SCALAR_TOOLTIPS[item.key]}>
                         <input
                           type="number"
                           value={template.payroll[item.key]}
@@ -1247,6 +1589,12 @@ export default function DraftTemplateEditor() {
             )}
           </>
         )}
+          </>
+        ) : (
+          <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-5 text-sm text-slate-300">
+            برای ادامه، ابتدا «عنوان» و «توضیحات» بخش اطلاعات پایه را وارد کنید.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1258,6 +1606,7 @@ function SectionCard({
   savedAt,
   onSave,
   disabledSave,
+  sticky,
   children,
 }: {
   title: string;
@@ -1265,10 +1614,15 @@ function SectionCard({
   savedAt?: string;
   onSave: () => void;
   disabledSave?: boolean;
+  sticky?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-slate-900/40 border border-white/5 rounded-2xl p-4 sm:p-6">
+    <section
+      className={`bg-slate-900/40 border border-white/5 rounded-2xl p-4 sm:p-6 ${
+        sticky ? 'sticky top-3 z-30 backdrop-blur-sm' : ''
+      }`}
+    >
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <div>
           <h2 className="text-lg font-bold text-white">{title}</h2>
@@ -1294,15 +1648,17 @@ function PayrollReadonlyReport({
   agreedAnalysis,
   perDay,
   perWeek,
-  perYear,
 }: {
   template: DraftTemplate;
   agreedAnalysis: AgreedAnalysis;
   perDay: string;
   perWeek: string;
-  perYear: string;
 }) {
   const selectedTarget = OVER_MIN_WAGE_TARGET_LABELS[template.payroll.overMinWageBenefitTarget] ?? 'ثبت نشده';
+  const draftKindLabel = DRAFT_KIND_LABELS[template.payroll.draftKind];
+  const eydiModeLabel = template.payroll.eydiPayoutMode === 'monthly' ? 'پرداخت ماهانه' : 'پرداخت سالانه';
+  const severanceModeLabel =
+    template.payroll.severancePayoutMode === 'monthly' ? 'پرداخت ماهانه' : 'پرداخت پایان همکاری';
   const reportGroups: Array<{ title: string; items: Array<{ key: PayrollFieldKey; label: string }> }> = [
     { title: 'مولفه‌های اصلی حکمی', items: MAIN_COMPONENTS },
     { title: 'مزایای به تبع شغل', items: JOB_BENEFITS },
@@ -1321,17 +1677,19 @@ function PayrollReadonlyReport({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <ReportItem label="نوع پیش‌نویس" value={draftKindLabel} />
         <ReportItem label="جمع قانونی دریافتی" value={agreedAnalysis.legalTotal.toLocaleString('fa-IR')} />
         <ReportItem label="حقوق توافقی" value={agreedAnalysis.agreedTotal.toLocaleString('fa-IR')} />
         <ReportItem label="مابه‌التفاوت توافقی" value={agreedAnalysis.diff.toLocaleString('fa-IR')} />
         <ReportItem label="ثبت مازاد حد اداره کار در" value={selectedTarget} />
+        <ReportItem label="روش پرداخت عیدی" value={eydiModeLabel} />
+        <ReportItem label="روش پرداخت سنوات" value={severanceModeLabel} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <MiniStat label="معادل روزانه" value={`${perDay} ساعت`} />
-        <MiniStat label="معادل هفتگی" value={`${perWeek} ساعت`} />
-        <MiniStat label="معادل سالانه" value={`${perYear} ساعت`} />
-      </div>
+        <MiniStat label="معادل روزانه" value={perDay} />
+        <MiniStat label="معادل هفتگی (بر مبنای 6 روز)" value={perWeek} />
+              </div>
 
       {reportGroups.map((group) => (
         <div key={group.title} className="bg-slate-800/40 border border-white/5 rounded-xl p-4">
@@ -1415,16 +1773,19 @@ function PayrollReadonlyReport({
 function Field({
   label,
   required,
+  tooltip,
   children,
 }: {
   label: string;
   required?: boolean;
+  tooltip?: string;
   children: React.ReactNode;
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm text-slate-300">
-        {label}
+      <span className="text-sm text-slate-300 inline-flex items-center gap-1.5">
+        <span>{label}</span>
+        {tooltip && <InfoHint text={tooltip} />}
         {required && <span className="text-rose-400 mr-1">*</span>}
       </span>
       {children}
@@ -1441,6 +1802,53 @@ function ReportItem({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ToggleChip({
+  checked,
+  label,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`px-3 py-1.5 rounded-full border text-xs transition-all ${
+        checked
+          ? 'bg-emerald-500/15 border-emerald-400/60 text-emerald-100'
+          : 'bg-slate-800/50 border-white/15 text-slate-300 hover:border-white/30'
+      } ${disabled ? 'opacity-45 cursor-not-allowed' : ''}`}
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className={`w-4 h-4 rounded-full border inline-flex items-center justify-center text-[10px] ${
+            checked ? 'border-emerald-300 text-emerald-200' : 'border-slate-500 text-slate-400'
+          }`}
+        >
+          {checked ? '✓' : ''}
+        </span>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function InfoHint({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-white/20 text-slate-400 hover:text-slate-200 hover:border-white/40 cursor-help"
+    >
+      <Info className="w-3 h-3" />
+    </span>
+  );
+}
+
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-slate-800/50 border border-white/5 rounded-xl p-3">
@@ -1452,17 +1860,28 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 
 function PayrollFieldRow({
   label,
+  tooltip,
   field,
+  allowInsuranceToggle = true,
+  allowTaxToggle = true,
+  allowBaseWageToggle = true,
   onChange,
 }: {
   label: string;
+  tooltip?: string;
   field: PayrollField;
+  allowInsuranceToggle?: boolean;
+  allowTaxToggle?: boolean;
+  allowBaseWageToggle?: boolean;
   onChange: (patch: Partial<PayrollField>) => void;
 }) {
   return (
     <div className="bg-slate-800/40 border border-white/5 rounded-xl p-3 space-y-2">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-center">
-        <div className="text-sm text-slate-200 font-medium">{label}</div>
+        <div className="text-sm text-slate-200 font-medium inline-flex items-center gap-1.5">
+          <span>{label}</span>
+          {tooltip && <InfoHint text={tooltip} />}
+        </div>
         <input
           type="number"
           className="input-field"
@@ -1470,19 +1889,20 @@ function PayrollFieldRow({
           onChange={(e) => onChange({ value: e.target.value })}
         />
       </div>
-      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300">
-        <label className="flex items-center gap-1.5">
-          <input type="checkbox" checked={field.insurance} onChange={(e) => onChange({ insurance: e.target.checked })} />
-          مشمول بیمه
-        </label>
-        <label className="flex items-center gap-1.5">
-          <input type="checkbox" checked={field.tax} onChange={(e) => onChange({ tax: e.target.checked })} />
-          مشمول مالیات
-        </label>
-        <label className="flex items-center gap-1.5">
-          <input type="checkbox" checked={field.baseWage} onChange={(e) => onChange({ baseWage: e.target.checked })} />
-          قابل احتساب در مزد مبنا
-        </label>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+        {allowInsuranceToggle && (
+          <ToggleChip checked={field.insurance} label="مشمول بیمه" onChange={(checked) => onChange({ insurance: checked })} />
+        )}
+        {allowTaxToggle && (
+          <ToggleChip checked={field.tax} label="مشمول مالیات" onChange={(checked) => onChange({ tax: checked })} />
+        )}
+        {allowBaseWageToggle && (
+          <ToggleChip
+            checked={field.baseWage}
+            label="قابل احتساب در مزد مبنا"
+            onChange={(checked) => onChange({ baseWage: checked })}
+          />
+        )}
       </div>
     </div>
   );
