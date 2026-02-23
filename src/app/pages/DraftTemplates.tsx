@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import {
   Archive,
   ArchiveRestore,
-  CalendarRange,
   ChevronRight,
   Copy,
   FileText,
@@ -19,12 +18,42 @@ import {
   getPayrollPackageEnabled,
   saveDraftTemplates,
 } from '../lib/draft-template-store';
-import type { DraftTemplate } from '../lib/draft-template-types';
+import type { DraftTemplate, TaxBracket } from '../lib/draft-template-types';
 
-const formatPeriod = (item: DraftTemplate): string => {
-  const start = item.periodStart || 'نامشخص';
-  if (!item.periodEnd) return `شروع: ${start}`;
-  return `شروع: ${start} | پایان: ${item.periodEnd}`;
+const toNumber = (value?: string): number => {
+  const n = Number(value ?? '');
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatMoney = (value: number | null) => (value == null ? '-' : `${Math.round(value).toLocaleString('fa-IR')} تومان`);
+
+const estimateMonthlyTax = (gross: number, exemption: string, brackets: TaxBracket[]): number => {
+  const ex = Math.max(0, toNumber(exemption));
+  if (gross <= ex) return 0;
+  let tax = 0;
+  for (const bracket of brackets ?? []) {
+    const rate = toNumber(bracket.rate);
+    if (rate <= 0) continue;
+    const start = Math.max(ex, toNumber(bracket.start));
+    const rawEnd = bracket.end ? toNumber(bracket.end) : Number.POSITIVE_INFINITY;
+    const end = rawEnd > start ? rawEnd : Number.POSITIVE_INFINITY;
+    const taxable = Math.max(0, Math.min(gross, end) - start);
+    tax += taxable * (rate / 100);
+    if (gross <= end) break;
+  }
+  return Math.max(0, tax);
+};
+
+const getAgreedSummary = (template: DraftTemplate) => {
+  if (template.payroll.inputMode !== 'agreed') return null;
+  const gross = toNumber(template.payroll.agreedWage);
+  if (gross <= 0) return null;
+  const insuranceEnabled = template.payroll.globalInsuranceEnabled ?? true;
+  const taxEnabled = template.payroll.globalTaxEnabled ?? true;
+  const workerInsurance = insuranceEnabled ? gross * (toNumber(template.payroll.workerInsuranceRate) / 100) : 0;
+  const tax = taxEnabled ? estimateMonthlyTax(gross, template.payroll.monthlyTaxExemption, template.payroll.taxBrackets) : 0;
+  const net = Math.max(0, gross - workerInsurance - tax);
+  return { gross, net };
 };
 
 export default function DraftTemplates() {
@@ -39,9 +68,7 @@ export default function DraftTemplates() {
     return templates.filter(
       (item) =>
         item.title.includes(needle) ||
-        item.description.includes(needle) ||
-        item.periodStart.includes(needle) ||
-        item.periodEnd.includes(needle),
+        item.description.includes(needle),
     );
   }, [search, templates]);
 
@@ -145,7 +172,7 @@ export default function DraftTemplates() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="جستجو در عنوان، توضیحات یا بازه زمانی..."
+            placeholder="جستجو در عنوان یا توضیحات..."
             className="w-full bg-slate-900/40 border border-white/5 hover:border-white/10 rounded-xl py-3 pr-10 pl-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
           />
         </div>
@@ -167,6 +194,12 @@ export default function DraftTemplates() {
                 whileHover={{ scale: 1.004, y: -1 }}
                 className="bg-slate-900/40 border border-white/5 hover:border-indigo-500/30 rounded-2xl p-4 sm:p-6 transition-all"
               >
+                {(() => {
+                  const insuranceEnabled = template.payroll.globalInsuranceEnabled ?? true;
+                  const taxEnabled = template.payroll.globalTaxEnabled ?? true;
+                  const inputModeLabel = template.payroll.inputMode === 'agreed' ? 'حقوق توافقی' : 'ورود دستی';
+                  const agreedSummary = getAgreedSummary(template);
+                  return (
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
                     <FileText className="w-6 h-6" />
@@ -186,12 +219,35 @@ export default function DraftTemplates() {
                           >
                             {template.status === 'active' ? 'فعال' : 'آرشیو'}
                           </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                              template.payroll.inputMode === 'agreed'
+                                ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+                                : 'bg-slate-700/30 text-slate-300 border-white/10'
+                            }`}
+                          >
+                            {inputModeLabel}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                              insuranceEnabled
+                                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                            }`}
+                          >
+                            بیمه: {insuranceEnabled ? 'دارد' : 'ندارد'}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                              taxEnabled
+                                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                            }`}
+                          >
+                            مالیات: {taxEnabled ? 'دارد' : 'ندارد'}
+                          </span>
                         </div>
 
-                        <div className="text-xs text-slate-400 flex items-center gap-2">
-                          <CalendarRange className="w-3.5 h-3.5" />
-                          <span>بازه زمانی: {formatPeriod(template)}</span>
-                        </div>
                         <p className="text-sm text-slate-300">{template.description || 'توضیحی ثبت نشده است.'}</p>
                       </div>
 
@@ -242,8 +298,19 @@ export default function DraftTemplates() {
                         value={`${template.attendance.monthlyOvertimeCap || '-'} ساعت`}
                       />
                     </div>
+
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <InfoItem
+                        label="روش ثبت حقوق"
+                        value={template.payroll.inputMode === 'agreed' ? 'حقوق توافقی' : 'ورود دستی'}
+                      />
+                      <InfoItem label="ناخالص توافقی (30 روز)" value={formatMoney(agreedSummary?.gross ?? null)} />
+                      <InfoItem label="خالص توافقی (30 روز)" value={formatMoney(agreedSummary?.net ?? null)} />
+                    </div>
                   </div>
                 </div>
+                  );
+                })()}
               </motion.div>
             ))}
           </div>

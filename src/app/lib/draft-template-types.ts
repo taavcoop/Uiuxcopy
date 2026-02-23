@@ -1,7 +1,34 @@
 export type TemplateStatus = 'active' | 'archived';
 export type PayrollInputMode = 'manual' | 'agreed';
+export type PayrollDraftKind = 'monthly_fixed' | 'daily_wage' | 'hourly' | 'project' | 'consulting';
 export type FixedAdjustmentKind = 'addition' | 'deduction';
 export type FixedAdjustmentCalcType = 'fixed' | 'base_wage_factor';
+export type EydiPayoutMode = 'monthly' | 'yearly';
+export type SeverancePayoutMode = 'monthly' | 'end_of_cooperation';
+export type LaborOfficeReferencePayrollFieldKey =
+  | 'baseSalary'
+  | 'seniorityBase'
+  | 'housingAllowance'
+  | 'foodAllowance'
+  | 'childAllowancePerChild'
+  | 'marriageAllowance'
+  | 'attractionAllowance'
+  | 'managementAllowance'
+  | 'commuteAllowance'
+  | 'hardshipAllowance'
+  | 'otherBenefits'
+  | 'overtimeFactor'
+  | 'nightWorkFactor1'
+  | 'nightWorkFactor2'
+  | 'holidayWorkFactor'
+  | 'fridayWorkFactorWithOvertime'
+  | 'fridayWorkFactorWithoutOvertime'
+  | 'morningEveningShiftPercent'
+  | 'morningEveningNightShiftPercent'
+  | 'morningNightShiftPercent'
+  | 'eveningNightShiftPercent'
+  | 'eydi'
+  | 'severancePay';
 
 export interface TaxBracket {
   id: string;
@@ -28,6 +55,14 @@ export interface FixedAdjustmentItem {
   baseWage: boolean;
 }
 
+export interface LaborOfficeReferenceSelection {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  appliedAt: string;
+}
+
 export interface DraftTemplateAttendance {
   monthlyLeaveCap: string;
   maxLeaveCarryToNextYear: string;
@@ -36,9 +71,14 @@ export interface DraftTemplateAttendance {
 
 export interface DraftTemplatePayroll {
   inputMode: PayrollInputMode;
+  draftKind: PayrollDraftKind;
   agreedWage: string;
   overMinWageBenefitTarget: string;
   monthlyRequiredHours: string;
+  hourlyRateOverrideDraft: string;
+  hourlyRateOverride: string;
+  globalInsuranceEnabled: boolean;
+  globalTaxEnabled: boolean;
 
   baseSalary: PayrollField;
   seniorityBase: PayrollField;
@@ -67,6 +107,8 @@ export interface DraftTemplatePayroll {
 
   eydi: PayrollField;
   severancePay: PayrollField;
+  eydiPayoutMode: EydiPayoutMode;
+  severancePayoutMode: SeverancePayoutMode;
 
   workerInsuranceRate: string;
   employerInsuranceRate: string;
@@ -83,10 +125,8 @@ export interface DraftTemplatePayroll {
 export interface DraftTemplate {
   id: string;
   title: string;
-  periodStart: string;
-  periodEnd: string;
-  isPeriodEndOpen: boolean;
   description: string;
+  laborOfficeReference: LaborOfficeReferenceSelection | null;
   attendance: DraftTemplateAttendance;
   payroll: DraftTemplatePayroll;
   status: TemplateStatus;
@@ -105,10 +145,8 @@ const createPayrollField = (value = ''): PayrollField => ({
 export const createEmptyDraftTemplate = (): DraftTemplate => ({
   id: `tmpl-${Date.now()}`,
   title: '',
-  periodStart: '',
-  periodEnd: '',
-  isPeriodEndOpen: false,
   description: '',
+  laborOfficeReference: null,
   attendance: {
     monthlyLeaveCap: '',
     maxLeaveCarryToNextYear: '',
@@ -116,9 +154,14 @@ export const createEmptyDraftTemplate = (): DraftTemplate => ({
   },
   payroll: {
     inputMode: 'manual',
+    draftKind: 'monthly_fixed',
     agreedWage: '',
     overMinWageBenefitTarget: '',
     monthlyRequiredHours: '',
+    hourlyRateOverrideDraft: '',
+    hourlyRateOverride: '',
+    globalInsuranceEnabled: true,
+    globalTaxEnabled: true,
 
     baseSalary: createPayrollField(),
     seniorityBase: createPayrollField(),
@@ -147,6 +190,8 @@ export const createEmptyDraftTemplate = (): DraftTemplate => ({
 
     eydi: createPayrollField('2'),
     severancePay: createPayrollField('1'),
+    eydiPayoutMode: 'yearly',
+    severancePayoutMode: 'end_of_cooperation',
 
     workerInsuranceRate: '7',
     employerInsuranceRate: '23',
@@ -171,26 +216,144 @@ export const createEmptyDraftTemplate = (): DraftTemplate => ({
   savedSections: {},
 });
 
+export interface LaborOfficeReferencePreset {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  attendance: Partial<DraftTemplateAttendance>;
+  payrollScalarValues: Partial<
+    Pick<
+      DraftTemplatePayroll,
+      | 'monthlyRequiredHours'
+      | 'workerInsuranceRate'
+      | 'employerInsuranceRate'
+      | 'unemploymentInsuranceRate'
+      | 'insuranceCapMultiplier'
+      | 'monthlyTaxExemption'
+    >
+  >;
+  payrollFieldValues: Partial<Record<LaborOfficeReferencePayrollFieldKey, string>>;
+  taxBrackets: Array<Pick<TaxBracket, 'start' | 'end' | 'rate'>>;
+}
+
+export const LABOR_OFFICE_REFERENCE_PRESETS: LaborOfficeReferencePreset[] = [
+  {
+    id: 'labor-office-1404',
+    title: 'مرجع اداره کار ۱۴۰۴',
+    startDate: '2025-03-21',
+    endDate: '2026-03-20',
+    attendance: {
+      monthlyLeaveCap: '2.5',
+      maxLeaveCarryToNextYear: '9',
+      monthlyOvertimeCap: '60',
+    },
+    payrollScalarValues: {
+      monthlyRequiredHours: '220',
+      workerInsuranceRate: '7',
+      employerInsuranceRate: '20',
+      unemploymentInsuranceRate: '3',
+      insuranceCapMultiplier: '7',
+      monthlyTaxExemption: '240000000',
+    },
+    payrollFieldValues: {
+      baseSalary: '71661840',
+      seniorityBase: '2100000',
+      housingAllowance: '9000000',
+      foodAllowance: '14000000',
+      childAllowancePerChild: '7166184',
+      marriageAllowance: '5000000',
+      overtimeFactor: '1.4',
+      nightWorkFactor1: '1.35',
+      nightWorkFactor2: '1.10',
+      holidayWorkFactor: '1.4',
+      fridayWorkFactorWithOvertime: '1.4',
+      fridayWorkFactorWithoutOvertime: '1.2',
+      morningEveningShiftPercent: '10',
+      morningEveningNightShiftPercent: '22.5',
+      morningNightShiftPercent: '22.5',
+      eveningNightShiftPercent: '22.5',
+      eydi: '2',
+      severancePay: '1',
+    },
+    taxBrackets: [
+      { start: '', end: '240000000', rate: '0' },
+      { start: '', end: '300000000', rate: '10' },
+      { start: '', end: '380000000', rate: '15' },
+      { start: '', end: '', rate: '20' },
+    ],
+  },
+  {
+    id: 'labor-office-1403',
+    title: 'مرجع اداره کار ۱۴۰۳',
+    startDate: '2024-03-20',
+    endDate: '2025-03-20',
+    attendance: {
+      monthlyLeaveCap: '2.5',
+      maxLeaveCarryToNextYear: '9',
+      monthlyOvertimeCap: '60',
+    },
+    payrollScalarValues: {
+      monthlyRequiredHours: '220',
+      workerInsuranceRate: '7',
+      employerInsuranceRate: '20',
+      unemploymentInsuranceRate: '3',
+      insuranceCapMultiplier: '7',
+      monthlyTaxExemption: '120000000',
+    },
+    payrollFieldValues: {
+      baseSalary: '53082338',
+      seniorityBase: '2100000',
+      housingAllowance: '9000000',
+      foodAllowance: '14000000',
+      childAllowancePerChild: '5308233',
+      marriageAllowance: '5000000',
+      overtimeFactor: '1.4',
+      nightWorkFactor1: '1.35',
+      nightWorkFactor2: '1.10',
+      holidayWorkFactor: '1.4',
+      fridayWorkFactorWithOvertime: '1.4',
+      fridayWorkFactorWithoutOvertime: '1.2',
+      morningEveningShiftPercent: '10',
+      morningEveningNightShiftPercent: '22.5',
+      morningNightShiftPercent: '22.5',
+      eveningNightShiftPercent: '22.5',
+      eydi: '2',
+      severancePay: '1',
+    },
+    taxBrackets: [
+      { start: '', end: '120000000', rate: '0' },
+      { start: '', end: '165000000', rate: '10' },
+      { start: '', end: '270000000', rate: '15' },
+      { start: '', end: '', rate: '20' },
+    ],
+  },
+];
+
+export const getLaborOfficeReferencePresetById = (id: string): LaborOfficeReferencePreset | null =>
+  LABOR_OFFICE_REFERENCE_PRESETS.find((item) => item.id === id) ?? null;
+
 export const createMockDraftTemplates = (): DraftTemplate[] => {
   const first = createEmptyDraftTemplate();
   first.id = 'tmpl-1001';
   first.title = 'قرارداد آزمایشی کارمندان اداری';
-  first.periodStart = '2025-03-21';
-  first.periodEnd = '';
-  first.isPeriodEndOpen = true;
   first.description = 'نسخه پیش‌نویس قرارداد سال جدید برای تیم اداری.';
   first.attendance.monthlyLeaveCap = '2.5';
   first.attendance.maxLeaveCarryToNextYear = '9';
   first.attendance.monthlyOvertimeCap = '60';
+  first.laborOfficeReference = {
+    id: 'labor-office-1404',
+    title: 'مرجع اداره کار ۱۴۰۴',
+    startDate: '2025-03-21',
+    endDate: '2026-03-20',
+    appliedAt: new Date().toISOString(),
+  };
   first.savedSections.base = new Date().toISOString();
   first.savedSections.attendance = new Date().toISOString();
 
   const second = createEmptyDraftTemplate();
   second.id = 'tmpl-1002';
   second.title = 'پیش‌نویس قرارداد شیفتی واحد عملیات';
-  second.periodStart = '2025-05-01';
-  second.periodEnd = '2026-03-20';
-  second.isPeriodEndOpen = false;
   second.description = 'برای واحد عملیات با ساختار شیفت و اضافه‌کاری محدود.';
   second.attendance.monthlyLeaveCap = '2';
   second.attendance.maxLeaveCarryToNextYear = '6';
