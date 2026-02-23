@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Briefcase, Plus, Edit2, Trash2, ChevronRight, Clock, Users } from 'lucide-react';
 import { motion } from 'motion/react';

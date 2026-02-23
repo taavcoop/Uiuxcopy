@@ -16,9 +16,6 @@ export default function AddPolicy() {
   const [activeShiftSubTab, setActiveShiftSubTab] = useState<ShiftSubTab>('fixed');
   const [activeLeaveSubTab, setActiveLeaveSubTab] = useState<LeaveSubTab>('annual');
 
-  // Leave Policy - Unit Toggle State
-  const [leaveUnitMode, setLeaveUnitMode] = useState<'daily' | 'hourly'>('daily');
-
   // Fixed Shift States
   const [fixedInGrace, setFixedInGrace] = useState('10');
   const [fixedLateMethod, setFixedLateMethod] = useState<'Graceful' | 'Strict'>('Graceful');
@@ -67,8 +64,7 @@ export default function AddPolicy() {
   // Leave Policy States
   const [leaveTitle, setLeaveTitle] = useState('');
   const [leaveNature, setLeaveNature] = useState<'paid' | 'unpaid'>('paid');
-  const [leaveUnit, setLeaveUnit] = useState<'daily' | 'hourly'>('daily');
-  const [leaveQuotaView, setLeaveQuotaView] = useState<'day' | 'hour'>('day');
+  const [leaveUnit, setLeaveUnit] = useState<'minute' | 'hour'>('minute');
   const [leaveAnnualQuota, setLeaveAnnualQuota] = useState('26');
   const [leaveAnnualQuotaHours, setLeaveAnnualQuotaHours] = useState('208');
   const [leaveAnnualQuotaMinutes, setLeaveAnnualQuotaMinutes] = useState('0');
@@ -77,7 +73,6 @@ export default function AddPolicy() {
   const [leaveMonthlyQuotaMinutes, setLeaveMonthlyQuotaMinutes] = useState('0');
   const [leaveMonthlyCapEnabled, setLeaveMonthlyCapEnabled] = useState(true);
   const [leaveMinRequest, setLeaveMinRequest] = useState('30');
-  const [leaveMinUnit, setLeaveMinUnit] = useState<'minute' | 'day'>('minute');
   const [leaveMinMinutes, setLeaveMinMinutes] = useState('30');
   const [leaveMaxRequest, setLeaveMaxRequest] = useState('3');
   const [leaveMaxMinutes, setLeaveMaxMinutes] = useState('180');
@@ -87,6 +82,78 @@ export default function AddPolicy() {
   const [leaveBuyback, setLeaveBuyback] = useState(false);
   const [leaveAttachmentRequired, setLeaveAttachmentRequired] = useState(false);
   const [leaveApprovalSteps, setLeaveApprovalSteps] = useState<'1' | '2'>('1');
+
+  // Mission Policy States
+  const [missionUnit, setMissionUnit] = useState<'minute' | 'hour'>('minute');
+  const [missionMinMinutes, setMissionMinMinutes] = useState('30');
+  const [missionMaxMinutes, setMissionMaxMinutes] = useState('480');
+  const [missionDailyCapMinutes, setMissionDailyCapMinutes] = useState('600');
+  const [missionMonthlyCapMinutes, setMissionMonthlyCapMinutes] = useState('3600');
+  const [missionWeekendAllowed, setMissionWeekendAllowed] = useState(false);
+  const [missionRemoteAllowed, setMissionRemoteAllowed] = useState(true);
+  const [missionRequirePreApproval, setMissionRequirePreApproval] = useState(true);
+  const [missionAttachmentRequired, setMissionAttachmentRequired] = useState(true);
+  const [missionApprovalSteps, setMissionApprovalSteps] = useState<'1' | '2'>('2');
+  const [missionCountAsWorkTime, setMissionCountAsWorkTime] = useState(true);
+
+  // Overtime Policy States
+  const [overtimeUnit, setOvertimeUnit] = useState<'minute' | 'hour'>('minute');
+  const [overtimeMinBlockMinutes, setOvertimeMinBlockMinutes] = useState('30');
+  const [overtimeDailyCapMinutes, setOvertimeDailyCapMinutes] = useState('240');
+  const [overtimeMonthlyCapMinutes, setOvertimeMonthlyCapMinutes] = useState('2400');
+  const [overtimeBeforeShiftAllowed, setOvertimeBeforeShiftAllowed] = useState(false);
+  const [overtimeAfterShiftAllowed, setOvertimeAfterShiftAllowed] = useState(true);
+  const [overtimeHolidayAllowed, setOvertimeHolidayAllowed] = useState(true);
+  const [overtimeAutoFromPunch, setOvertimeAutoFromPunch] = useState(true);
+  const [overtimeAttachmentRequired, setOvertimeAttachmentRequired] = useState(false);
+  const [overtimeRequireApproval, setOvertimeRequireApproval] = useState(true);
+  const [overtimeApprovalSteps, setOvertimeApprovalSteps] = useState<'1' | '2'>('1');
+  const [overtimeRoundPolicy, setOvertimeRoundPolicy] = useState<'none' | 'nearest' | 'ceil' | 'floor'>('nearest');
+  const [overtimeRoundSize, setOvertimeRoundSize] = useState('15');
+
+  // Manual Attendance Policy States
+  const [manualAttendanceEnabled, setManualAttendanceEnabled] = useState(true);
+  const [manualAttendanceRequireReason, setManualAttendanceRequireReason] = useState(true);
+  const [manualAttendanceRequireAttachment, setManualAttendanceRequireAttachment] = useState(false);
+  const [manualAttendanceAllowPastDays, setManualAttendanceAllowPastDays] = useState(true);
+  const [manualAttendancePastDaysLimit, setManualAttendancePastDaysLimit] = useState('3');
+  const [manualAttendanceApprovalSteps, setManualAttendanceApprovalSteps] = useState<'1' | '2'>('1');
+  const [manualAttendanceMaxPerMonth, setManualAttendanceMaxPerMonth] = useState('10');
+
+  // Shift Swap Policy States
+  const [swapEnabled, setSwapEnabled] = useState(true);
+  const [swapAllowCrossGroup, setSwapAllowCrossGroup] = useState(false);
+  const [swapRequirePeerApproval, setSwapRequirePeerApproval] = useState(true);
+  const [swapRequireManagerApproval, setSwapRequireManagerApproval] = useState(true);
+  const [swapAllowPastShift, setSwapAllowPastShift] = useState(false);
+  const [swapMinNoticeHours, setSwapMinNoticeHours] = useState('12');
+  const [swapMonthlyLimit, setSwapMonthlyLimit] = useState('4');
+  const [swapUnit, setSwapUnit] = useState<'minute' | 'hour'>('hour');
+  const [swapMinGapMinutes, setSwapMinGapMinutes] = useState('480');
+  const [swapBlockOvertimeConflict, setSwapBlockOvertimeConflict] = useState(true);
+  const [swapBlockLeaveConflict, setSwapBlockLeaveConflict] = useState(true);
+
+  // Holiday Policy States
+  const [holidayEnabled, setHolidayEnabled] = useState(true);
+  const [holidayAutoFromCalendar, setHolidayAutoFromCalendar] = useState(true);
+  const [holidayWorkAsOvertime, setHolidayWorkAsOvertime] = useState(true);
+  const [holidayRequireApprovalForWork, setHolidayRequireApprovalForWork] = useState(true);
+  const [holidayRequireAttachment, setHolidayRequireAttachment] = useState(false);
+  const [holidayCompOffEnabled, setHolidayCompOffEnabled] = useState(false);
+  const [holidayCompOffExpireDays, setHolidayCompOffExpireDays] = useState('90');
+  const [holidayUnit, setHolidayUnit] = useState<'minute' | 'hour'>('hour');
+  const [holidayMaxWorkMinutes, setHolidayMaxWorkMinutes] = useState('480');
+
+  // Other Attendance Policy States
+  const [otherAutoAbsentNoPunch, setOtherAutoAbsentNoPunch] = useState(true);
+  const [otherMissingPunchAction, setOtherMissingPunchAction] = useState<'pending' | 'absent' | 'manualRequest'>('pending');
+  const [otherRequireReasonForExceptions, setOtherRequireReasonForExceptions] = useState(true);
+  const [otherGeofenceRequired, setOtherGeofenceRequired] = useState(false);
+  const [otherDeviceBindingRequired, setOtherDeviceBindingRequired] = useState(false);
+  const [otherFaceRecognitionInAttendanceFlow, setOtherFaceRecognitionInAttendanceFlow] = useState(false);
+  const [otherAttendanceLockDays, setOtherAttendanceLockDays] = useState('2');
+  const [otherMaxConsecutiveAbsence, setOtherMaxConsecutiveAbsence] = useState('3');
+  const [otherAlertOnAbsenceLimit, setOtherAlertOnAbsenceLimit] = useState(true);
 
   // Work Calendar State
   const [selectedCalendar, setSelectedCalendar] = useState<string>('');
@@ -471,14 +538,13 @@ export default function AddPolicy() {
 
               <div className="bg-slate-950/50 border border-white/5 rounded-xl p-5">
                 <LeavePolicyTab
+                  leaveType={activeLeaveSubTab}
                   title={leaveTitle}
                   setTitle={setLeaveTitle}
                   nature={leaveNature}
                   setNature={setLeaveNature}
                   unit={leaveUnit}
                   setUnit={setLeaveUnit}
-                  quotaView={leaveQuotaView}
-                  setQuotaView={setLeaveQuotaView}
                   annualQuota={leaveAnnualQuota}
                   setAnnualQuota={setLeaveAnnualQuota}
                   annualQuotaHours={leaveAnnualQuotaHours}
@@ -495,8 +561,6 @@ export default function AddPolicy() {
                   setMonthlyCapEnabled={setLeaveMonthlyCapEnabled}
                   minRequest={leaveMinRequest}
                   setMinRequest={setLeaveMinRequest}
-                  minUnit={leaveMinUnit}
-                  setMinUnit={setLeaveMinUnit}
                   minMinutes={leaveMinMinutes}
                   setMinMinutes={setLeaveMinMinutes}
                   maxRequest={leaveMaxRequest}
@@ -520,8 +584,226 @@ export default function AddPolicy() {
             </div>
           )}
 
+          {/* Mission Policy Tab */}
+          {activeTab === 'mission' && (
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-bold text-white mb-2">سیاست‌های ماموریت</h2>
+                <p className="text-xs text-slate-400">تعریف قوانین ثبت، تایید و محدودیت‌های زمانی ماموریت سازمانی</p>
+              </div>
+
+              <div className="bg-slate-950/50 border border-white/5 rounded-xl p-5">
+                <MissionPolicyTab
+                  unit={missionUnit}
+                  setUnit={setMissionUnit}
+                  minMinutes={missionMinMinutes}
+                  setMinMinutes={setMissionMinMinutes}
+                  maxMinutes={missionMaxMinutes}
+                  setMaxMinutes={setMissionMaxMinutes}
+                  dailyCapMinutes={missionDailyCapMinutes}
+                  setDailyCapMinutes={setMissionDailyCapMinutes}
+                  monthlyCapMinutes={missionMonthlyCapMinutes}
+                  setMonthlyCapMinutes={setMissionMonthlyCapMinutes}
+                  weekendAllowed={missionWeekendAllowed}
+                  setWeekendAllowed={setMissionWeekendAllowed}
+                  remoteAllowed={missionRemoteAllowed}
+                  setRemoteAllowed={setMissionRemoteAllowed}
+                  requirePreApproval={missionRequirePreApproval}
+                  setRequirePreApproval={setMissionRequirePreApproval}
+                  attachmentRequired={missionAttachmentRequired}
+                  setAttachmentRequired={setMissionAttachmentRequired}
+                  approvalSteps={missionApprovalSteps}
+                  setApprovalSteps={setMissionApprovalSteps}
+                  countAsWorkTime={missionCountAsWorkTime}
+                  setCountAsWorkTime={setMissionCountAsWorkTime}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Overtime Policy Tab */}
+          {activeTab === 'overtime' && (
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-bold text-white mb-2">سیاست‌های اضافه‌کاری</h2>
+                <p className="text-xs text-slate-400">تعریف بازه مجاز، تایید، سقف زمانی و ضرایب محاسبه اضافه‌کاری</p>
+              </div>
+
+              <div className="bg-slate-950/50 border border-white/5 rounded-xl p-5">
+                <OvertimePolicyTab
+                  unit={overtimeUnit}
+                  setUnit={setOvertimeUnit}
+                  minBlockMinutes={overtimeMinBlockMinutes}
+                  setMinBlockMinutes={setOvertimeMinBlockMinutes}
+                  dailyCapMinutes={overtimeDailyCapMinutes}
+                  setDailyCapMinutes={setOvertimeDailyCapMinutes}
+                  monthlyCapMinutes={overtimeMonthlyCapMinutes}
+                  setMonthlyCapMinutes={setOvertimeMonthlyCapMinutes}
+                  beforeShiftAllowed={overtimeBeforeShiftAllowed}
+                  setBeforeShiftAllowed={setOvertimeBeforeShiftAllowed}
+                  afterShiftAllowed={overtimeAfterShiftAllowed}
+                  setAfterShiftAllowed={setOvertimeAfterShiftAllowed}
+                  holidayAllowed={overtimeHolidayAllowed}
+                  setHolidayAllowed={setOvertimeHolidayAllowed}
+                  autoFromPunch={overtimeAutoFromPunch}
+                  setAutoFromPunch={setOvertimeAutoFromPunch}
+                  attachmentRequired={overtimeAttachmentRequired}
+                  setAttachmentRequired={setOvertimeAttachmentRequired}
+                  requireApproval={overtimeRequireApproval}
+                  setRequireApproval={setOvertimeRequireApproval}
+                  approvalSteps={overtimeApprovalSteps}
+                  setApprovalSteps={setOvertimeApprovalSteps}
+                  roundPolicy={overtimeRoundPolicy}
+                  setRoundPolicy={setOvertimeRoundPolicy}
+                  roundSize={overtimeRoundSize}
+                  setRoundSize={setOvertimeRoundSize}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Manual Attendance Policy Tab */}
+          {activeTab === 'attendance' && (
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-bold text-white mb-2">سیاست‌های تردد دستی</h2>
+                <p className="text-xs text-slate-400">تعریف شرایط ثبت دستی ورود و خروج، محدودیت‌ها و تاییدها</p>
+              </div>
+
+              <div className="bg-slate-950/50 border border-white/5 rounded-xl p-5">
+                <ManualAttendancePolicyTab
+                  enabled={manualAttendanceEnabled}
+                  setEnabled={setManualAttendanceEnabled}
+                  requireReason={manualAttendanceRequireReason}
+                  setRequireReason={setManualAttendanceRequireReason}
+                  requireAttachment={manualAttendanceRequireAttachment}
+                  setRequireAttachment={setManualAttendanceRequireAttachment}
+                  allowPastDays={manualAttendanceAllowPastDays}
+                  setAllowPastDays={setManualAttendanceAllowPastDays}
+                  pastDaysLimit={manualAttendancePastDaysLimit}
+                  setPastDaysLimit={setManualAttendancePastDaysLimit}
+                  approvalSteps={manualAttendanceApprovalSteps}
+                  setApprovalSteps={setManualAttendanceApprovalSteps}
+                  maxPerMonth={manualAttendanceMaxPerMonth}
+                  setMaxPerMonth={setManualAttendanceMaxPerMonth}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Shift Swap Policy Tab */}
+          {activeTab === 'swap' && (
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-bold text-white mb-2">سیاست‌های جابجایی شیفت</h2>
+                <p className="text-xs text-slate-400">تعریف مجوزها، تاییدها و محدودیت‌های زمانی جابجایی بین پرسنل</p>
+              </div>
+
+              <div className="bg-slate-950/50 border border-white/5 rounded-xl p-5">
+                <SwapPolicyTab
+                  enabled={swapEnabled}
+                  setEnabled={setSwapEnabled}
+                  allowCrossGroup={swapAllowCrossGroup}
+                  setAllowCrossGroup={setSwapAllowCrossGroup}
+                  requirePeerApproval={swapRequirePeerApproval}
+                  setRequirePeerApproval={setSwapRequirePeerApproval}
+                  requireManagerApproval={swapRequireManagerApproval}
+                  setRequireManagerApproval={setSwapRequireManagerApproval}
+                  allowPastShift={swapAllowPastShift}
+                  setAllowPastShift={setSwapAllowPastShift}
+                  minNoticeHours={swapMinNoticeHours}
+                  setMinNoticeHours={setSwapMinNoticeHours}
+                  monthlyLimit={swapMonthlyLimit}
+                  setMonthlyLimit={setSwapMonthlyLimit}
+                  unit={swapUnit}
+                  setUnit={setSwapUnit}
+                  minGapMinutes={swapMinGapMinutes}
+                  setMinGapMinutes={setSwapMinGapMinutes}
+                  blockOvertimeConflict={swapBlockOvertimeConflict}
+                  setBlockOvertimeConflict={setSwapBlockOvertimeConflict}
+                  blockLeaveConflict={swapBlockLeaveConflict}
+                  setBlockLeaveConflict={setSwapBlockLeaveConflict}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Holiday Policy Tab */}
+          {activeTab === 'holiday' && (
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-bold text-white mb-2">سیاست‌های روز تعطیل</h2>
+                <p className="text-xs text-slate-400">تعریف نحوه کار در تعطیلات، تاییدها و قوانین جایگزین</p>
+              </div>
+
+              <div className="bg-slate-950/50 border border-white/5 rounded-xl p-5">
+                <HolidayPolicyTab
+                  enabled={holidayEnabled}
+                  setEnabled={setHolidayEnabled}
+                  autoFromCalendar={holidayAutoFromCalendar}
+                  setAutoFromCalendar={setHolidayAutoFromCalendar}
+                  workAsOvertime={holidayWorkAsOvertime}
+                  setWorkAsOvertime={setHolidayWorkAsOvertime}
+                  requireApprovalForWork={holidayRequireApprovalForWork}
+                  setRequireApprovalForWork={setHolidayRequireApprovalForWork}
+                  requireAttachment={holidayRequireAttachment}
+                  setRequireAttachment={setHolidayRequireAttachment}
+                  compOffEnabled={holidayCompOffEnabled}
+                  setCompOffEnabled={setHolidayCompOffEnabled}
+                  compOffExpireDays={holidayCompOffExpireDays}
+                  setCompOffExpireDays={setHolidayCompOffExpireDays}
+                  unit={holidayUnit}
+                  setUnit={setHolidayUnit}
+                  maxWorkMinutes={holidayMaxWorkMinutes}
+                  setMaxWorkMinutes={setHolidayMaxWorkMinutes}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Other Attendance Policy Tab */}
+          {activeTab === 'other' && (
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+              <div className="mb-5">
+                <h2 className="text-base font-bold text-white mb-2">سیاست‌های سایر</h2>
+                <p className="text-xs text-slate-400">تنظیمات تکمیلی حضور و غیاب که در سایر تب‌ها پوشش داده نشده‌اند</p>
+              </div>
+
+              <div className="bg-slate-950/50 border border-white/5 rounded-xl p-5">
+                <OtherAttendancePolicyTab
+                  autoAbsentNoPunch={otherAutoAbsentNoPunch}
+                  setAutoAbsentNoPunch={setOtherAutoAbsentNoPunch}
+                  missingPunchAction={otherMissingPunchAction}
+                  setMissingPunchAction={setOtherMissingPunchAction}
+                  requireReasonForExceptions={otherRequireReasonForExceptions}
+                  setRequireReasonForExceptions={setOtherRequireReasonForExceptions}
+                  geofenceRequired={otherGeofenceRequired}
+                  setGeofenceRequired={setOtherGeofenceRequired}
+                  deviceBindingRequired={otherDeviceBindingRequired}
+                  setDeviceBindingRequired={setOtherDeviceBindingRequired}
+                  faceRecognitionInAttendanceFlow={otherFaceRecognitionInAttendanceFlow}
+                  setFaceRecognitionInAttendanceFlow={setOtherFaceRecognitionInAttendanceFlow}
+                  attendanceLockDays={otherAttendanceLockDays}
+                  setAttendanceLockDays={setOtherAttendanceLockDays}
+                  maxConsecutiveAbsence={otherMaxConsecutiveAbsence}
+                  setMaxConsecutiveAbsence={setOtherMaxConsecutiveAbsence}
+                  alertOnAbsenceLimit={otherAlertOnAbsenceLimit}
+                  setAlertOnAbsenceLimit={setOtherAlertOnAbsenceLimit}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Other Tabs - Coming Soon */}
-          {activeTab !== 'shift' && activeTab !== 'nightShift' && activeTab !== 'leave' && (
+          {activeTab !== 'shift' &&
+            activeTab !== 'nightShift' &&
+            activeTab !== 'leave' &&
+            activeTab !== 'mission' &&
+            activeTab !== 'overtime' &&
+            activeTab !== 'attendance' &&
+            activeTab !== 'swap' &&
+            activeTab !== 'holiday' &&
+            activeTab !== 'other' && (
             <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-12 text-center">
               <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Info className="w-8 h-8 text-slate-600" />
@@ -1370,6 +1652,564 @@ function SplitShiftTab({
   );
 }
 
+// Mission Policy Tab
+function MissionPolicyTab({
+  unit,
+  setUnit,
+  minMinutes,
+  setMinMinutes,
+  maxMinutes,
+  setMaxMinutes,
+  dailyCapMinutes,
+  setDailyCapMinutes,
+  monthlyCapMinutes,
+  setMonthlyCapMinutes,
+  weekendAllowed,
+  setWeekendAllowed,
+  remoteAllowed,
+  setRemoteAllowed,
+  requirePreApproval,
+  setRequirePreApproval,
+  attachmentRequired,
+  setAttachmentRequired,
+  approvalSteps,
+  setApprovalSteps,
+  countAsWorkTime,
+  setCountAsWorkTime,
+}: any) {
+  return (
+    <div className="space-y-6">
+      <InfoBox variant="info">در تب ماموریت فقط الزام پیوست فایل تنظیم می‌شود.</InfoBox>
+
+      <FormGrid>
+        <FormGroup label="الزام به پیوست" tooltip="برای ثبت ماموریت، پیوست فایل الزامی باشد">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">پیوست فایل اجباری</div>
+            <Toggle checked={attachmentRequired} onChange={setAttachmentRequired} />
+          </div>
+        </FormGroup>
+      </FormGrid>
+    </div>
+  );
+}
+
+// Overtime Policy Tab
+function OvertimePolicyTab({
+  unit,
+  setUnit,
+  minBlockMinutes,
+  setMinBlockMinutes,
+  dailyCapMinutes,
+  setDailyCapMinutes,
+  monthlyCapMinutes,
+  setMonthlyCapMinutes,
+  beforeShiftAllowed,
+  setBeforeShiftAllowed,
+  afterShiftAllowed,
+  setAfterShiftAllowed,
+  holidayAllowed,
+  setHolidayAllowed,
+  autoFromPunch,
+  setAutoFromPunch,
+  attachmentRequired,
+  setAttachmentRequired,
+  requireApproval,
+  setRequireApproval,
+  approvalSteps,
+  setApprovalSteps,
+  roundPolicy,
+  setRoundPolicy,
+  roundSize,
+  setRoundSize,
+}: any) {
+  return (
+    <div className="space-y-6">
+      <InfoBox variant="info">در تب اضافه‌کاری، روش محاسبه خودکار و گزینه‌های مرتبط با آن تنظیم می‌شود.</InfoBox>
+
+      <FormGrid cols={2}>
+        <FormGroup label="محاسبه خودکار از تردد" tooltip="اختلاف ورود/خروج با برنامه کاری به صورت خودکار اضافه‌کاری شود">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">محاسبه خودکار اضافه‌کاری</div>
+            <Toggle checked={autoFromPunch} onChange={setAutoFromPunch} />
+          </div>
+        </FormGroup>
+
+        <FormGroup label="الزام به پیوست" tooltip="برای ثبت اضافه‌کاری، پیوست فایل الزامی باشد">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">پیوست اجباری</div>
+            <Toggle checked={attachmentRequired} onChange={setAttachmentRequired} />
+          </div>
+        </FormGroup>
+
+        {autoFromPunch && (
+          <FormGroup label="اضافه‌کاری قبل از شیفت" tooltip="با روشن بودن محاسبه خودکار، زمان قبل از شروع شیفت محاسبه شود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">اضافه‌کاری قبل از شیفت</div>
+              <Toggle checked={beforeShiftAllowed} onChange={setBeforeShiftAllowed} />
+            </div>
+          </FormGroup>
+        )}
+
+        {autoFromPunch && (
+          <FormGroup label="اضافه‌کاری بعد از شیفت" tooltip="با روشن بودن محاسبه خودکار، زمان بعد از پایان شیفت محاسبه شود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">اضافه‌کاری بعد از شیفت</div>
+              <Toggle checked={afterShiftAllowed} onChange={setAfterShiftAllowed} />
+            </div>
+          </FormGroup>
+        )}
+      </FormGrid>
+    </div>
+  );
+}
+
+// Manual Attendance Policy Tab
+function ManualAttendancePolicyTab({
+  enabled,
+  setEnabled,
+  requireReason,
+  setRequireReason,
+  requireAttachment,
+  setRequireAttachment,
+  allowPastDays,
+  setAllowPastDays,
+  pastDaysLimit,
+  setPastDaysLimit,
+  approvalSteps,
+  setApprovalSteps,
+  maxPerMonth,
+  setMaxPerMonth,
+}: any) {
+  return (
+    <div className="space-y-6">
+      <InfoBox variant="info">
+        در این بخش مشخص می‌شود پرسنل در چه شرایطی بتوانند ورود و خروج را به صورت دستی ثبت یا اصلاح کنند.
+      </InfoBox>
+
+      <div>
+        <SectionTitle>🧩 دسترسی و الزامات</SectionTitle>
+        <FormGrid>
+          <FormGroup label="فعال‌سازی تردد دستی" tooltip="اجازه ثبت دستی ورود/خروج برای کاربران">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">تردد دستی فعال باشد</div>
+              <Toggle checked={enabled} onChange={setEnabled} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="الزام ثبت دلیل" tooltip="کاربر هنگام ثبت دستی باید دلیل وارد کند">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">دلیل اجباری</div>
+              <Toggle checked={requireReason} onChange={setRequireReason} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="الزام پیوست" tooltip="مثلاً نامه، اسکرین‌شات یا تایید سرپرست">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">پیوست فایل اجباری</div>
+              <Toggle checked={requireAttachment} onChange={setRequireAttachment} />
+            </div>
+          </FormGroup>
+
+        </FormGrid>
+      </div>
+
+      <Divider />
+
+      <div>
+        <SectionTitle>⏳ محدودیت‌های ثبت</SectionTitle>
+        <FormGrid>
+          <FormGroup label="اجازه ثبت برای روزهای گذشته" tooltip="کاربر بتواند برای روزهای قبل ثبت/اصلاح بزند">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">ثبت روزهای گذشته</div>
+              <Toggle checked={allowPastDays} onChange={setAllowPastDays} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="حداکثر روز مجاز گذشته" tooltip="تعداد روز مجاز برای برگشت به عقب">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={pastDaysLimit}
+                onChange={(e) => setPastDaysLimit(e.target.value)}
+                min="0"
+                className="input-field flex-1"
+                placeholder="3"
+                disabled={!allowPastDays}
+              />
+              <span className="text-xs text-slate-500 whitespace-nowrap">روز</span>
+            </div>
+          </FormGroup>
+
+          <FormGroup label="سقف ثبت ماهانه" tooltip="هر نفر در ماه حداکثر چند بار ثبت دستی انجام دهد">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={maxPerMonth}
+                onChange={(e) => setMaxPerMonth(e.target.value)}
+                min="0"
+                className="input-field flex-1"
+                placeholder="10"
+              />
+              <span className="text-xs text-slate-500 whitespace-nowrap">بار</span>
+            </div>
+          </FormGroup>
+        </FormGrid>
+      </div>
+
+      <Divider />
+
+      <div>
+        <SectionTitle>✅ جریان تایید</SectionTitle>
+        <FormGrid>
+          <FormGroup label="تعداد مراحل تایید" tooltip="۱ مرحله: مدیر مستقیم، ۲ مرحله: مدیر + منابع انسانی">
+            <select value={approvalSteps} onChange={(e) => setApprovalSteps(e.target.value)} className="input-field">
+              <option value="1">۱ مرحله (مدیر مستقیم)</option>
+              <option value="2">۲ مرحله (مدیر + منابع انسانی)</option>
+            </select>
+          </FormGroup>
+        </FormGrid>
+      </div>
+    </div>
+  );
+}
+
+// Shift Swap Policy Tab
+function SwapPolicyTab({
+  enabled,
+  setEnabled,
+  allowCrossGroup,
+  setAllowCrossGroup,
+  requirePeerApproval,
+  setRequirePeerApproval,
+  requireManagerApproval,
+  setRequireManagerApproval,
+  allowPastShift,
+  setAllowPastShift,
+  minNoticeHours,
+  setMinNoticeHours,
+  monthlyLimit,
+  setMonthlyLimit,
+  unit,
+  setUnit,
+  minGapMinutes,
+  setMinGapMinutes,
+  blockOvertimeConflict,
+  setBlockOvertimeConflict,
+  blockLeaveConflict,
+  setBlockLeaveConflict,
+}: any) {
+  const toSafeNumber = (value: string, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  const isHourMode = unit === 'hour';
+  const toHourMinute = (totalMinutes: number) => {
+    const safe = Math.max(0, Math.round(totalMinutes));
+    return { hours: Math.floor(safe / 60), minutes: safe % 60 };
+  };
+  const minutesToHourInput = (value: string) => {
+    const totalMinutes = Math.max(0, Math.round(toSafeNumber(value, 0)));
+    const hours = totalMinutes / 60;
+    return Number.isInteger(hours) ? String(hours) : hours.toFixed(2).replace(/\.?0+$/, '');
+  };
+  const inputToMinutes = (value: string) => {
+    if (value.trim() === '') return '';
+    if (isHourMode) return String(Math.max(0, Math.round(toSafeNumber(value, 0) * 60)));
+    return String(Math.max(0, Math.round(toSafeNumber(value, 0))));
+  };
+  const displayValue = isHourMode ? minutesToHourInput(minGapMinutes) : minGapMinutes;
+  const minuteHint = Math.max(0, Math.round(toSafeNumber(minGapMinutes, 0)));
+  const hourHint = toHourMinute(minuteHint);
+
+  return (
+    <div className="space-y-6">
+      <InfoBox variant="info">
+        این بخش قوانین جابجایی شیفت بین پرسنل را کنترل می‌کند تا تداخل زمانی، اضافه‌کاری ناخواسته و بی‌نظمی ایجاد نشود.
+      </InfoBox>
+
+      <div>
+        <SectionTitle>🔁 تنظیمات پایه جابجایی</SectionTitle>
+        <FormGrid>
+          <FormGroup label="فعال‌سازی جابجایی شیفت" tooltip="اجازه درخواست جابجایی بین کارکنان">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">جابجایی شیفت فعال باشد</div>
+              <Toggle checked={enabled} onChange={setEnabled} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="جابجایی بین گروهی" tooltip="اجازه جابجایی با افراد خارج از گروه کاری">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">بین گروه‌های مختلف مجاز باشد</div>
+              <Toggle checked={allowCrossGroup} onChange={setAllowCrossGroup} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="جابجایی شیفت گذشته" tooltip="اجازه ثبت جابجایی برای شیفتی که زمانش گذشته">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">جابجایی برای شیفت گذشته</div>
+              <Toggle checked={allowPastShift} onChange={setAllowPastShift} />
+            </div>
+          </FormGroup>
+        </FormGrid>
+      </div>
+
+      <Divider />
+
+      <div>
+        <SectionTitle>⏱ محدودیت‌های زمانی</SectionTitle>
+        <FormGrid cols={2}>
+          <FormGroup label="حداقل زمان اطلاع‌رسانی" tooltip="درخواست جابجایی حداقل چند ساعت قبل از شروع شیفت ثبت شود">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={minNoticeHours}
+                onChange={(e) => setMinNoticeHours(e.target.value)}
+                min="0"
+                className="input-field flex-1"
+                placeholder="12"
+              />
+              <span className="text-xs text-slate-500 whitespace-nowrap">ساعت</span>
+            </div>
+          </FormGroup>
+
+          <FormGroup label="سقف جابجایی ماهانه" tooltip="هر نفر در ماه حداکثر چند جابجایی داشته باشد">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={monthlyLimit}
+                onChange={(e) => setMonthlyLimit(e.target.value)}
+                min="0"
+                className="input-field flex-1"
+                placeholder="4"
+              />
+              <span className="text-xs text-slate-500 whitespace-nowrap">بار</span>
+            </div>
+          </FormGroup>
+
+          <FormGroup label="حداقل فاصله بین دو شیفت" tooltip="برای جلوگیری از خستگی بیش از حد بعد از جابجایی">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+                <div className="text-sm text-slate-200">واحد ثبت: {isHourMode ? 'ساعت' : 'دقیقه'}</div>
+                <Toggle checked={isHourMode} onChange={() => setUnit(isHourMode ? 'minute' : 'hour')} />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={displayValue}
+                  onChange={(e) => setMinGapMinutes(inputToMinutes(e.target.value))}
+                  min="0"
+                  step={isHourMode ? '0.25' : '1'}
+                  className="input-field flex-1"
+                  placeholder={isHourMode ? '8' : '480'}
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap">{isHourMode ? 'ساعت' : 'دقیقه'}</span>
+              </div>
+              <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                {isHourMode ? (
+                  <>💡 معادل: <strong>{minuteHint} دقیقه</strong></>
+                ) : (
+                  <>
+                    💡 معادل: <strong>{hourHint.hours} ساعت و {hourHint.minutes} دقیقه</strong>
+                  </>
+                )}
+              </div>
+            </div>
+          </FormGroup>
+        </FormGrid>
+      </div>
+
+      <Divider />
+
+      <div>
+        <SectionTitle>✅ تایید و کنترل تداخل</SectionTitle>
+        <FormGrid>
+          <FormGroup label="تایید نفر جایگزین" tooltip="فردی که شیفت را می‌گیرد باید تایید کند">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">تایید نفر جایگزین اجباری</div>
+              <Toggle checked={requirePeerApproval} onChange={setRequirePeerApproval} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="تایید مدیر" tooltip="درخواست جابجایی باید توسط مدیر تایید نهایی شود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">تایید مدیر اجباری</div>
+              <Toggle checked={requireManagerApproval} onChange={setRequireManagerApproval} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="جلوگیری از تداخل اضافه‌کاری" tooltip="اگر جابجایی باعث تضاد با قوانین اضافه‌کاری شود رد شود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">مسدودسازی تداخل اضافه‌کاری</div>
+              <Toggle checked={blockOvertimeConflict} onChange={setBlockOvertimeConflict} />
+            </div>
+          </FormGroup>
+
+          <FormGroup label="جلوگیری از تداخل مرخصی" tooltip="اگر فرد در بازه مرخصی باشد جابجایی ثبت نشود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">مسدودسازی تداخل مرخصی</div>
+              <Toggle checked={blockLeaveConflict} onChange={setBlockLeaveConflict} />
+            </div>
+          </FormGroup>
+        </FormGrid>
+      </div>
+    </div>
+  );
+}
+
+// Holiday Policy Tab
+function HolidayPolicyTab({
+  enabled,
+  setEnabled,
+  autoFromCalendar,
+  setAutoFromCalendar,
+  workAsOvertime,
+  setWorkAsOvertime,
+  requireApprovalForWork,
+  setRequireApprovalForWork,
+  requireAttachment,
+  setRequireAttachment,
+  compOffEnabled,
+  setCompOffEnabled,
+  compOffExpireDays,
+  setCompOffExpireDays,
+  unit,
+  setUnit,
+  maxWorkMinutes,
+  setMaxWorkMinutes,
+}: any) {
+  const isHourMode = unit === 'hour';
+  const toSafeNumber = (value: string, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  const minutesToHourInput = (value: string) => {
+    const totalMinutes = Math.max(0, Math.round(toSafeNumber(value, 0)));
+    const hours = totalMinutes / 60;
+    return Number.isInteger(hours) ? String(hours) : hours.toFixed(2).replace(/\.?0+$/, '');
+  };
+  const inputToMinutes = (value: string) => {
+    if (value.trim() === '') return '';
+    if (isHourMode) return String(Math.max(0, Math.round(toSafeNumber(value, 0) * 60)));
+    return String(Math.max(0, Math.round(toSafeNumber(value, 0))));
+  };
+
+  return (
+    <div className="space-y-6">
+      <InfoBox variant="info">در تب روز تعطیل فقط چهار تنظیم اصلی نمایش داده می‌شود.</InfoBox>
+
+      <FormGrid cols={2}>
+        <FormGroup label="محاسبه به عنوان اضافه‌کاری" tooltip="کار در تعطیل به عنوان اضافه‌کاری ثبت شود">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">محاسبه به عنوان اضافه‌کاری</div>
+            <Toggle checked={workAsOvertime} onChange={setWorkAsOvertime} />
+          </div>
+        </FormGroup>
+
+        <FormGroup label="نیاز به تایید مدیر" tooltip="ثبت کار در تعطیلات بدون تایید مدیر نهایی نشود">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">نیاز به تایید مدیر</div>
+            <Toggle checked={requireApprovalForWork} onChange={setRequireApprovalForWork} />
+          </div>
+        </FormGroup>
+
+        <FormGroup label="پیوست اجباری" tooltip="برای کار در تعطیلات، پیوست مستندات الزامی باشد">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">پیوست اجباری</div>
+            <Toggle checked={requireAttachment} onChange={setRequireAttachment} />
+          </div>
+        </FormGroup>
+
+        <FormGroup label="حداکثر کار مجاز در تعطیل" tooltip="سقف زمان قابل ثبت برای هر روز تعطیل">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div className="text-sm text-slate-200">واحد ثبت: {isHourMode ? 'ساعت' : 'دقیقه'}</div>
+              <Toggle checked={isHourMode} onChange={() => setUnit(isHourMode ? 'minute' : 'hour')} />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={isHourMode ? minutesToHourInput(maxWorkMinutes) : maxWorkMinutes}
+                onChange={(e) => setMaxWorkMinutes(inputToMinutes(e.target.value))}
+                min="0"
+                step={isHourMode ? '0.25' : '1'}
+                className="input-field flex-1"
+                placeholder={isHourMode ? '8' : '480'}
+              />
+              <span className="text-xs text-slate-500 whitespace-nowrap">{isHourMode ? 'ساعت' : 'دقیقه'}</span>
+            </div>
+          </div>
+        </FormGroup>
+      </FormGrid>
+    </div>
+  );
+}
+
+// Other Attendance Policy Tab
+function OtherAttendancePolicyTab({
+  autoAbsentNoPunch,
+  setAutoAbsentNoPunch,
+  missingPunchAction,
+  setMissingPunchAction,
+  requireReasonForExceptions,
+  setRequireReasonForExceptions,
+  geofenceRequired,
+  setGeofenceRequired,
+  deviceBindingRequired,
+  setDeviceBindingRequired,
+  faceRecognitionInAttendanceFlow,
+  setFaceRecognitionInAttendanceFlow,
+  attendanceLockDays,
+  setAttendanceLockDays,
+  maxConsecutiveAbsence,
+  setMaxConsecutiveAbsence,
+  alertOnAbsenceLimit,
+  setAlertOnAbsenceLimit,
+}: any) {
+  return (
+    <div className="space-y-6">
+      <InfoBox variant="info">در تب سایر فقط تنظیمات امنیتی تردد و هشدار غیبت متوالی نمایش داده می‌شود.</InfoBox>
+
+      <FormGrid cols={2}>
+        <FormGroup label="الزام محدوده مکانی (Geofence)" tooltip="ثبت تردد فقط داخل محدوده‌های تعریف‌شده مجاز باشد">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">الزام محدوده مکانی (Geofence)</div>
+            <Toggle checked={geofenceRequired} onChange={setGeofenceRequired} />
+          </div>
+        </FormGroup>
+
+        <FormGroup label="تشخیص چهره در فلو تردد" tooltip="برای ثبت ورود/خروج، تایید چهره کاربر در جریان تردد انجام شود">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">تشخیص چهره در فلو تردد</div>
+            <Toggle checked={faceRecognitionInAttendanceFlow} onChange={setFaceRecognitionInAttendanceFlow} />
+          </div>
+        </FormGroup>
+
+        <FormGroup label="هشدار سقف غیبت متوالی" tooltip="با رسیدن به سقف غیبت، هشدار برای مدیر ارسال شود">
+          <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+            <div className="text-sm text-slate-200">هشدار سقف غیبت متوالی</div>
+            <Toggle checked={alertOnAbsenceLimit} onChange={setAlertOnAbsenceLimit} />
+          </div>
+        </FormGroup>
+
+        <FormGroup label="حداکثر غیبت متوالی برای هشدار" tooltip="این فیلد فقط وقتی هشدار روشن باشد فعال است">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={maxConsecutiveAbsence}
+              onChange={(e) => setMaxConsecutiveAbsence(e.target.value)}
+              min="0"
+              className="input-field flex-1"
+              placeholder="3"
+              disabled={!alertOnAbsenceLimit}
+            />
+            <span className="text-xs text-slate-500 whitespace-nowrap">روز</span>
+          </div>
+        </FormGroup>
+      </FormGrid>
+    </div>
+  );
+}
+
 // Night Shift Tab
 function NightShiftTab({ start, setStart, end, setEnd }: any) {
   return (
@@ -1414,14 +2254,13 @@ function NightShiftTab({ start, setStart, end, setEnd }: any) {
 
 // Leave Policy Tab
 function LeavePolicyTab({
+  leaveType,
   title,
   setTitle,
   nature,
   setNature,
   unit,
   setUnit,
-  quotaView,
-  setQuotaView,
   annualQuota,
   setAnnualQuota,
   annualQuotaHours,
@@ -1438,8 +2277,6 @@ function LeavePolicyTab({
   setMonthlyCapEnabled,
   minRequest,
   setMinRequest,
-  minUnit,
-  setMinUnit,
   minMinutes,
   setMinMinutes,
   maxRequest,
@@ -1459,6 +2296,175 @@ function LeavePolicyTab({
   approvalSteps,
   setApprovalSteps,
 }: any) {
+  const toSafeNumber = (value: string, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const toHourMinute = (totalMinutes: number) => {
+    const safeMinutes = Math.max(0, Math.round(totalMinutes));
+    const hours = Math.floor(safeMinutes / 60);
+    const minutes = safeMinutes % 60;
+    return { hours, minutes };
+  };
+
+  const minutesToHourInput = (value: string) => {
+    const totalMinutes = Math.max(0, Math.round(toSafeNumber(value, 0)));
+    const hours = totalMinutes / 60;
+    return Number.isInteger(hours) ? String(hours) : hours.toFixed(2).replace(/\.?0+$/, '');
+  };
+
+  const hourInputToMinutes = (value: string) => {
+    if (value.trim() === '') return '';
+    const totalMinutes = Math.max(0, Math.round(toSafeNumber(value, 0) * 60));
+    return String(totalMinutes);
+  };
+
+  const annualTotalMinutes = Math.max(
+    0,
+    Math.round(toSafeNumber(annualQuotaHours, 0) * 60 + toSafeNumber(annualQuotaMinutes, 0))
+  );
+  const monthlyTotalMinutes = Math.max(
+    0,
+    Math.round(toSafeNumber(monthlyQuotaHours, 0) * 60 + toSafeNumber(monthlyQuotaMinutes, 0))
+  );
+  const carryoverTotalMinutes = Math.max(
+    0,
+    Math.round(toSafeNumber(carryoverCapHours, 0) * 60 + toSafeNumber(carryoverCapMinutes, 0))
+  );
+  const minTotalMinutes = Math.max(0, Math.round(toSafeNumber(minMinutes, 0)));
+  const maxTotalMinutes = Math.max(0, Math.round(toSafeNumber(maxMinutes, 0)));
+  const isHourMode = unit === 'hour';
+
+  const normalizeMinuteInput = (value: string) => {
+    if (value.trim() === '') return '';
+    return String(Math.max(0, Math.round(toSafeNumber(value, 0))));
+  };
+
+  const inputToMinutesByMode = (value: string) => {
+    return isHourMode ? hourInputToMinutes(value) : normalizeMinuteInput(value);
+  };
+
+  const displayValueByMode = (totalMinutes: number) => {
+    return isHourMode ? minutesToHourInput(String(totalMinutes)) : String(totalMinutes);
+  };
+
+  const setHourMinutePairFromTotal = (
+    totalMinutesValue: string,
+    setHours: (value: string) => void,
+    setMinutes: (value: string) => void
+  ) => {
+    const totalMinutes = Math.max(0, Math.round(toSafeNumber(totalMinutesValue, 0)));
+    const { hours, minutes } = toHourMinute(totalMinutes);
+    setHours(String(hours));
+    setMinutes(String(minutes));
+  };
+
+  const isAnnualLeave = leaveType === 'annual';
+  const isSickLeave = leaveType === 'sick';
+  const isUnpaidLeave = leaveType === 'unpaid';
+  const isIncentiveLeave = leaveType === 'incentive';
+
+  if (isAnnualLeave) {
+    return (
+      <div className="space-y-6">
+        <InfoBox variant="info">در مرخصی استحقاقی فقط محدودیت مصرف ماهانه و الزام پیوست تنظیم می‌شود.</InfoBox>
+
+        <FormGrid cols={2}>
+          <FormGroup label="حداکثر استفاده از سهمیه در ماه" tooltip="سقف مجاز مصرف مرخصی استحقاقی در هر ماه">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={displayValueByMode(monthlyTotalMinutes)}
+                  onChange={(e) =>
+                    setHourMinutePairFromTotal(
+                      inputToMinutesByMode(e.target.value),
+                      setMonthlyQuotaHours,
+                      setMonthlyQuotaMinutes
+                    )
+                  }
+                  min="0"
+                  step={isHourMode ? '0.25' : '1'}
+                  className="input-field flex-1"
+                  placeholder={isHourMode ? '20' : '1200'}
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap">{isHourMode ? 'ساعت' : 'دقیقه'}</span>
+              </div>
+            </div>
+          </FormGroup>
+
+          <FormGroup label="الزام به پیوست فایل" tooltip="درخواست مرخصی بدون فایل پیوست ثبت نشود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-sm text-slate-200">پیوست اجباری</div>
+                <div className="text-xs text-slate-500">درخواست بدون فایل ثبت نشود</div>
+              </div>
+              <Toggle checked={attachmentRequired} onChange={setAttachmentRequired} />
+            </div>
+          </FormGroup>
+        </FormGrid>
+      </div>
+    );
+  }
+
+  if (isSickLeave || isIncentiveLeave) {
+    return (
+      <div className="space-y-6">
+        <InfoBox variant="info">برای این نوع مرخصی فقط الزام پیوست تنظیم می‌شود.</InfoBox>
+
+        <FormGrid cols={2}>
+          <FormGroup label="الزام به پیوست فایل" tooltip="درخواست مرخصی بدون فایل پیوست ثبت نشود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-sm text-slate-200">پیوست اجباری</div>
+                <div className="text-xs text-slate-500">درخواست بدون فایل ثبت نشود</div>
+              </div>
+              <Toggle checked={attachmentRequired} onChange={setAttachmentRequired} />
+            </div>
+          </FormGroup>
+        </FormGrid>
+      </div>
+    );
+  }
+
+  if (isUnpaidLeave) {
+    return (
+      <div className="space-y-6">
+        <InfoBox variant="info">برای مرخصی بدون حقوق فقط سقف مجاز و الزام پیوست تنظیم می‌شود.</InfoBox>
+
+        <FormGrid cols={2}>
+          <FormGroup label="سقف مرخصی بدون حقوق" tooltip="حداکثر مدت مجاز برای مرخصی بدون حقوق">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={displayValueByMode(maxTotalMinutes)}
+                  onChange={(e) => setMaxMinutes(inputToMinutesByMode(e.target.value))}
+                  min="0"
+                  step={isHourMode ? '0.25' : '1'}
+                  className="input-field flex-1"
+                  placeholder={isHourMode ? '8' : '480'}
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap">{isHourMode ? 'ساعت' : 'دقیقه'}</span>
+              </div>
+            </div>
+          </FormGroup>
+
+          <FormGroup label="الزام به پیوست فایل" tooltip="درخواست مرخصی بدون فایل پیوست ثبت نشود">
+            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-sm text-slate-200">پیوست اجباری</div>
+                <div className="text-xs text-slate-500">درخواست بدون فایل ثبت نشود</div>
+              </div>
+              <Toggle checked={attachmentRequired} onChange={setAttachmentRequired} />
+            </div>
+          </FormGroup>
+        </FormGrid>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <InfoBox variant="info">این بخش هویت نوع مرخصی را مشخص می‌کند.</InfoBox>
@@ -1472,34 +2478,21 @@ function LeavePolicyTab({
             </select>
           </FormGroup>
 
-          <FormGroup label="واحد محاسبه" tooltip="مرخصی به صورت روزانه یا ساعتی محاسبه می‌شود">
+          <FormGroup label="واحد محاسبه" tooltip="مرخصی فقط بر اساس ساعت یا دقیقه محاسبه می‌شود">
             <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
               <div className="flex items-center gap-3">
                 <div>
-                  <div className="text-sm text-slate-200">تغییر به {unit === 'daily' ? 'ساعت' : 'روز'}</div>
+                  <div className="text-sm text-slate-200">تغییر به {isHourMode ? 'دقیقه' : 'ساعت'}</div>
                   <div className="text-xs text-slate-500">سوئیچ برای تغییر واحد محاسبه</div>
                 </div>
               </div>
               <Toggle 
-                checked={unit === 'hourly'} 
-                onChange={() => setUnit(unit === 'daily' ? 'hourly' : 'daily')} 
+                checked={isHourMode} 
+                onChange={() => setUnit(isHourMode ? 'minute' : 'hour')} 
               />
             </div>
             <div className="mt-2 text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
-              📌 <strong>واحد فعلی:</strong> {unit === 'daily' ? 'روزانه' : 'ساعتی'}
-            </div>
-          </FormGroup>
-
-          <FormGroup label="نمایش سهمیه" tooltip="قابلیت نمایش سهمیه هم به روز و هم به ساعت برای گزارش‌گیری">
-            <div className="flex items-center justify-between gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
-              <div>
-                <div className="text-sm text-slate-200">نمایش به {quotaView === 'day' ? 'ساعت' : 'روز'}</div>
-                <div className="text-xs text-slate-500">برای گزارش‌گیری و پیگیری</div>
-              </div>
-              <Toggle 
-                checked={quotaView === 'hour'} 
-                onChange={() => setQuotaView(quotaView === 'day' ? 'hour' : 'day')} 
-              />
+              📌 <strong>واحد فعلی:</strong> {isHourMode ? 'ساعت' : 'دقیقه'}
             </div>
           </FormGroup>
         </FormGrid>
@@ -1509,102 +2502,68 @@ function LeavePolicyTab({
 
       <div>
         <FormGrid cols={2}>
-          <FormGroup
-            label="سهمیه سالانه"
-            tooltip="مثال: ۲۶ روز طبق قانون کار یا ۳۰ روز. امکان نمایش به روز یا ساعت"
-          >
-            {unit === 'daily' ? (
+          <FormGroup label="سهمیه سالانه" tooltip="مثال: ۲۰۸ ساعت یا ۱۲۴۸۰ دقیقه">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  value={annualQuota}
-                  onChange={(e) => setAnnualQuota(e.target.value)}
+                  value={displayValueByMode(annualTotalMinutes)}
+                  onChange={(e) =>
+                    setHourMinutePairFromTotal(
+                      inputToMinutesByMode(e.target.value),
+                      setAnnualQuotaHours,
+                      setAnnualQuotaMinutes
+                    )
+                  }
                   min="0"
+                  step={isHourMode ? '0.25' : '1'}
                   className="input-field flex-1"
-                  placeholder="26"
+                  placeholder={isHourMode ? '208' : '12480'}
                 />
-                <span className="text-xs text-slate-500 whitespace-nowrap">روز</span>
+                <span className="text-xs text-slate-500 whitespace-nowrap">{isHourMode ? 'ساعت' : 'دقیقه'}</span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">ساعت</label>
-                    <input
-                      type="number"
-                      value={annualQuotaHours}
-                      onChange={(e) => setAnnualQuotaHours(e.target.value)}
-                      min="0"
-                      className="input-field w-full"
-                      placeholder="208"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">دقیقه</label>
-                    <input
-                      type="number"
-                      value={annualQuotaMinutes}
-                      onChange={(e) => setAnnualQuotaMinutes(e.target.value)}
-                      min="0"
-                      max="59"
-                      className="input-field w-full"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
-                  ۲۶ روز = <strong>{annualQuotaHours || '208'} ساعت و {annualQuotaMinutes || '0'} دقیقه</strong>
-                </div>
+              <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                {isHourMode ? (
+                  <>💡 معادل: <strong>{annualTotalMinutes} دقیقه</strong></>
+                ) : (
+                  <>
+                    💡 معادل: <strong>{toHourMinute(annualTotalMinutes).hours} ساعت و {toHourMinute(annualTotalMinutes).minutes} دقیقه</strong>
+                  </>
+                )}
               </div>
-            )}
+            </div>
           </FormGroup>
 
-          <FormGroup label="سهمیه ماهانه" tooltip="مثال: ۲.۵ روز">
-            {unit === 'daily' ? (
+          <FormGroup label="سهمیه ماهانه" tooltip="مثال: ۲۰ ساعت یا ۱۲۰۰ دقیقه">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  value={monthlyQuota}
-                  onChange={(e) => setMonthlyQuota(e.target.value)}
+                  value={displayValueByMode(monthlyTotalMinutes)}
+                  onChange={(e) =>
+                    setHourMinutePairFromTotal(
+                      inputToMinutesByMode(e.target.value),
+                      setMonthlyQuotaHours,
+                      setMonthlyQuotaMinutes
+                    )
+                  }
                   min="0"
-                  step="0.5"
+                  step={isHourMode ? '0.25' : '1'}
                   className="input-field flex-1"
-                  placeholder="2.5"
+                  placeholder={isHourMode ? '20' : '1200'}
                 />
-                <span className="text-xs text-slate-500 whitespace-nowrap">روز</span>
+                <span className="text-xs text-slate-500 whitespace-nowrap">{isHourMode ? 'ساعت' : 'دقیقه'}</span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">ساعت</label>
-                    <input
-                      type="number"
-                      value={monthlyQuotaHours}
-                      onChange={(e) => setMonthlyQuotaHours(e.target.value)}
-                      min="0"
-                      className="input-field w-full"
-                      placeholder="20"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">دقیقه</label>
-                    <input
-                      type="number"
-                      value={monthlyQuotaMinutes}
-                      onChange={(e) => setMonthlyQuotaMinutes(e.target.value)}
-                      min="0"
-                      max="59"
-                      className="input-field w-full"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
-                  ۲.۵ روز = <strong>{monthlyQuotaHours || '20'} ساعت و {monthlyQuotaMinutes || '0'} دقیقه</strong>
-                </div>
+              <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                {isHourMode ? (
+                  <>💡 معادل: <strong>{monthlyTotalMinutes} دقیقه</strong></>
+                ) : (
+                  <>
+                    💡 معادل: <strong>{toHourMinute(monthlyTotalMinutes).hours} ساعت و {toHourMinute(monthlyTotalMinutes).minutes} دقیقه</strong>
+                  </>
+                )}
               </div>
-            )}
+            </div>
           </FormGroup>
 
           <FormGroup
@@ -1625,111 +2584,98 @@ function LeavePolicyTab({
             </div>
           </FormGroup>
 
-          <FormGroup label="حداقل مدت درخواست" tooltip="برای مرخصی ساعتی حداقل می‌تواند ۳۰ دقیقه باشد">
+          <FormGroup label="حداقل مدت درخواست" tooltip="حداقل زمان مجاز برای ثبت یک درخواست مرخصی">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  value={unit === 'daily' ? minRequest : minUnit === 'day' ? minRequest : minMinutes}
-                  onChange={(e) => {
-                    if (unit === 'daily') {
-                      setMinRequest(e.target.value);
-                    } else {
-                      setLeaveMinMinutes(e.target.value);
-                    }
-                  }}
+                  value={displayValueByMode(minTotalMinutes)}
+                  onChange={(e) => setMinMinutes(inputToMinutesByMode(e.target.value))}
                   min="0"
+                  step={isHourMode ? '0.25' : '1'}
                   className="input-field flex-1"
-                  placeholder={unit === 'daily' ? 'روز' : 'دقیقه'}
+                  placeholder={isHourMode ? '0.5' : '30'}
                 />
-                <span className="text-xs text-slate-500 whitespace-nowrap">{unit === 'daily' ? 'روز' : 'دقیقه'}</span>
+                <span className="text-xs text-slate-500 whitespace-nowrap">
+                  {isHourMode ? 'ساعت' : 'دقیقه'}
+                </span>
               </div>
-              {unit === 'hourly' && (
-                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
-                  💡 معادل: {Math.round((parseInt(minMinutes) || 30) / 60)} ساعت و {(parseInt(minMinutes) || 30) % 60} دقیقه
-                </div>
-              )}
+              <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                {isHourMode ? (
+                  <>💡 معادل: <strong>{minTotalMinutes} دقیقه</strong></>
+                ) : (
+                  <>
+                    💡 معادل: <strong>{toHourMinute(minTotalMinutes).hours} ساعت و {toHourMinute(minTotalMinutes).minutes} دقیقه</strong>
+                  </>
+                )}
+              </div>
             </div>
           </FormGroup>
 
           <FormGroup
             label="حداکثر مدت درخواست در یک نوبت"
-            tooltip="مثال: برای استعلاجی بیش از ۳ روز نیاز به تأییدیه خاص دارد"
+            tooltip="بیشترین زمان مجاز برای ثبت یک درخواست مرخصی"
           >
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  value={unit === 'daily' ? maxRequest : leaveMaxMinutes}
-                  onChange={(e) => {
-                    if (unit === 'daily') {
-                      setLeaveMaxRequest(e.target.value);
-                    } else {
-                      setLeaveMaxMinutes(e.target.value);
-                    }
-                  }}
+                  value={displayValueByMode(maxTotalMinutes)}
+                  onChange={(e) => setMaxMinutes(inputToMinutesByMode(e.target.value))}
                   min="0"
+                  step={isHourMode ? '0.25' : '1'}
                   className="input-field flex-1"
-                  placeholder={unit === 'daily' ? '3' : '180'}
+                  placeholder={isHourMode ? '3' : '180'}
                 />
-                <span className="text-xs text-slate-500 whitespace-nowrap">{unit === 'daily' ? 'روز' : 'دقیقه'}</span>
+                <span className="text-xs text-slate-500 whitespace-nowrap">
+                  {isHourMode ? 'ساعت' : 'دقیقه'}
+                </span>
               </div>
-              {unit === 'hourly' && (
-                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
-                  💡 معادل: {Math.round((parseInt(leaveMaxMinutes) || 180) / 60)} ساعت و {(parseInt(leaveMaxMinutes) || 180) % 60} دقیقه
-                </div>
-              )}
+              <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                {isHourMode ? (
+                  <>💡 معادل: <strong>{maxTotalMinutes} دقیقه</strong></>
+                ) : (
+                  <>
+                    💡 معادل: <strong>{toHourMinute(maxTotalMinutes).hours} ساعت و {toHourMinute(maxTotalMinutes).minutes} دقیقه</strong>
+                  </>
+                )}
+              </div>
             </div>
           </FormGroup>
 
           <FormGroup
             label="سقف انتقال به سال بعد"
-            tooltip="طبق قانون کار معمولاً ۹ روز است، اما برخی شرکت‌ها ۱۵ روز یا نامحدود می‌گذارند"
+            tooltip="حداکثر مانده مرخصی قابل انتقال به سال بعد"
           >
-            {unit === 'daily' ? (
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  value={carryoverCap}
-                  onChange={(e) => setCarryoverCap(e.target.value)}
+                  value={displayValueByMode(carryoverTotalMinutes)}
+                  onChange={(e) =>
+                    setHourMinutePairFromTotal(
+                      inputToMinutesByMode(e.target.value),
+                      setCarryoverCapHours,
+                      setCarryoverCapMinutes
+                    )
+                  }
                   min="0"
+                  step={isHourMode ? '0.25' : '1'}
                   className="input-field flex-1"
-                  placeholder="9"
+                  placeholder={isHourMode ? '72' : '4320'}
                 />
-                <span className="text-xs text-slate-500 whitespace-nowrap">روز</span>
+                <span className="text-xs text-slate-500 whitespace-nowrap">{isHourMode ? 'ساعت' : 'دقیقه'}</span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">ساعت</label>
-                    <input
-                      type="number"
-                      value={carryoverCapHours}
-                      onChange={(e) => setCarryoverCapHours(e.target.value)}
-                      min="0"
-                      className="input-field w-full"
-                      placeholder="72"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 block mb-1">دقیقه</label>
-                    <input
-                      type="number"
-                      value={carryoverCapMinutes}
-                      onChange={(e) => setCarryoverCapMinutes(e.target.value)}
-                      min="0"
-                      max="59"
-                      className="input-field w-full"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-                <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
-                  ۹ روز = <strong>{carryoverCapHours || '72'} ساعت و {carryoverCapMinutes || '0'} دقیقه</strong>
-                </div>
+              <div className="text-xs text-slate-400 bg-slate-800/20 border border-indigo-500/20 rounded-lg p-3">
+                {isHourMode ? (
+                  <>💡 معادل: <strong>{carryoverTotalMinutes} دقیقه</strong></>
+                ) : (
+                  <>
+                    💡 معادل: <strong>{toHourMinute(carryoverTotalMinutes).hours} ساعت و {toHourMinute(carryoverTotalMinutes).minutes} دقیقه</strong>
+                  </>
+                )}
               </div>
-            )}
+            </div>
           </FormGroup>
         </FormGrid>
       </div>
