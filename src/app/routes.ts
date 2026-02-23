@@ -10,6 +10,9 @@ import AddWorkGroup from "./pages/AddWorkGroup";
 import PayrollContract from "./pages/PayrollContract";
 import Employees from "./pages/Employees";
 import AddEmployee from "./pages/AddEmployee";
+import EmployeeDetails from "./pages/EmployeeDetails";
+import EmployeeDetailPage from "./pages/EmployeeDetailPage";
+import QuickSetup from "./pages/QuickSetup";
 
 export const router = createBrowserRouter([
   {
@@ -27,7 +30,9 @@ export const router = createBrowserRouter([
       { path: "work-groups/:id", Component: AddWorkGroup },
       { path: "employees", Component: Employees },
       { path: "employees/add", Component: AddEmployee },
-      { path: "employees/:id", Component: AddEmployee },
+      { path: "employees/:id/:page", Component: EmployeeDetailPage },
+      { path: "employees/:id", Component: EmployeeDetails },
+      { path: "quick-setup", Component: QuickSetup },
       { path: "payroll-contract", Component: PayrollContract },
     ],
   },

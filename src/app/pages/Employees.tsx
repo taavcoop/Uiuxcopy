@@ -106,9 +106,9 @@ export default function Employees() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">مدیریت کاربران</h1>
+            <h1 className="text-3xl font-bold text-white">مدیریت کارمندان</h1>
             <p className="text-slate-400 text-sm mt-1">
-              کاربران را جستجو، فیلتر و ویرایش کنید یا کاربر جدید اضافه کنید.
+              کارمندان را جستجو، فیلتر و ویرایش کنید یا کارمند جدید اضافه کنید.
             </p>
           </div>
           <motion.button
@@ -118,7 +118,7 @@ export default function Employees() {
             className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all shadow-lg"
           >
             <Plus className="w-4 h-4" />
-            افزودن کاربر
+            افزودن کارمند
           </motion.button>
         </div>
 
@@ -158,7 +158,7 @@ export default function Employees() {
 
           <div className="bg-gradient-to-br from-slate-900/70 to-slate-950 border border-white/5 rounded-2xl p-4">
             <div className="flex items-center justify-between text-sm text-slate-400">
-              <span>تعداد کل کاربران</span>
+              <span>تعداد کل کارمندان</span>
               <span className="text-white font-bold">{employees.length}</span>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
@@ -177,14 +177,14 @@ export default function Employees() {
         {filteredEmployees.length === 0 ? (
           <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-10 text-center">
             <Users className="w-10 h-10 text-slate-500 mx-auto mb-3" />
-            <h2 className="text-lg font-bold text-white">کاربری پیدا نشد</h2>
-            <p className="text-sm text-slate-400 mt-2">فیلترها را تغییر دهید یا یک کاربر جدید ثبت کنید.</p>
+            <h2 className="text-lg font-bold text-white">کارمندی پیدا نشد</h2>
+            <p className="text-sm text-slate-400 mt-2">فیلترها را تغییر دهید یا یک کارمند جدید ثبت کنید.</p>
             <button
               onClick={() => navigate('/employees/add')}
               className="mt-4 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
             >
               <Plus className="w-4 h-4" />
-              افزودن اولین کاربر
+              افزودن اولین کارمند
             </button>
           </div>
         ) : (
@@ -202,7 +202,12 @@ export default function Employees() {
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base font-bold text-white">{employee.name}</h3>
+                        <button
+                          onClick={() => navigate(`/employees/${employee.id}`)}
+                          className="text-base font-bold text-white hover:text-indigo-300 transition-colors"
+                        >
+                          {employee.name}
+                        </button>
                         <span
                           className={cn(
                             'text-[11px] px-2 py-0.5 rounded-full border',
@@ -245,6 +250,12 @@ export default function Employees() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => navigate(`/employees/${employee.id}`)}
+                      className="px-3 py-2 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 transition-all text-xs font-medium"
+                    >
+                      جزئیات
+                    </button>
+                    <button
+                      onClick={() => navigate(`/employees/${employee.id}`)}
                       className="p-2 rounded-lg bg-slate-800/80 hover:bg-indigo-500/20 text-slate-300 hover:text-indigo-300 transition-all"
                     >
                       <Pencil className="w-4 h-4" />
@@ -265,3 +276,4 @@ export default function Employees() {
     </div>
   );
 }
+

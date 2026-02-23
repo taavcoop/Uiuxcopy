@@ -1,14 +1,10 @@
-﻿import { useState, type ChangeEvent, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronRight, CheckCircle2, AlertCircle, UploadCloud, FileText } from 'lucide-react';
+import { ChevronRight, CheckCircle2, Plus, X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import MonthlyFixedForm from '../components/contract/MonthlyFixedForm';
-import type { MonthlyFixedAgreement } from '../contract/types';
-import { LEGAL_CONSTANTS_2026 } from '../contract/salaryCalculations';
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2;
 type MaritalStatus = 'single' | 'married' | 'divorced';
-type AgreementType = 'monthly-fixed' | 'daily-wage' | 'hourly' | 'project-based' | 'consulting';
 
 interface FormData {
   phone: string;
@@ -20,76 +16,17 @@ interface FormData {
   maritalStatus: MaritalStatus;
   personnelCode: string;
   workGroup: string;
-  position: string;
-  fatherName: string;
-  birthDate: string;
-  accountNumber: string;
-  cardNumber: string;
-  shaba: string;
-  guarantees: string;
-  contractStartDate: string;
-  contractEndDate: string;
-  agreementType: AgreementType;
-  agreement: MonthlyFixedAgreement;
+  orgUnits: string[];
 }
 
 const WORK_GROUPS = ['تیم طراحی', 'تیم فنی', 'مالی', 'اداری'];
-const POSITIONS = ['کارشناس', 'مدیر', 'سرپرست', 'کارآموز'];
-
-const createDefaultAgreement = (): MonthlyFixedAgreement => ({
-  type: 'monthly-fixed',
-  entryMode: 'breakdown',
-  agreedTotalAmount: 0,
-  surplusAllocation: 'attraction',
-  baseSalary: LEGAL_CONSTANTS_2026.minimumDailyWage * 30,
-  seniorityBase: LEGAL_CONSTANTS_2026.seniorityBaseDailyRate,
-  housingAllowance: LEGAL_CONSTANTS_2026.housingAllowanceMonthly,
-  foodAllowance: LEGAL_CONSTANTS_2026.foodAllowanceMonthly,
-  childAllowancePerChild: LEGAL_CONSTANTS_2026.minimumDailyWage * 3,
-  maritalAllowance: LEGAL_CONSTANTS_2026.maritalAllowanceMonthly,
-  attractionAllowance: 0,
-  managementAllowance: 0,
-  transportAllowance: 0,
-  hardshipAllowance: 0,
-  otherAllowance: 0,
-  shiftModels: {
-    twoShifts: { enabled: false, percent: 10 },
-    threeShifts: { enabled: false, percent: 15 },
-    dayNight: { enabled: false, percent: 22.5 },
-    afternoonNight: { enabled: false, percent: 22.5 },
-  },
-  coefficients: {
-    overtime: 1.4,
-    nightWork: 1.35,
-    holidayWork: 1.4,
-    fridayWork: 1.8,
-    fridayWorkNoOvertime: 1.4,
-  },
-  missionAllowance: {
-    enabled: false,
-    minimumDailyRate: LEGAL_CONSTANTS_2026.minimumDailyWage,
-  },
-  wageBaseComponents: {
-    baseSalary: true,
-    seniorityBase: true,
-    attractionAllowance: true,
-    managementAllowance: true,
-    transportAllowance: false,
-    hardshipAllowance: true,
-  },
-  bonusMonths: 2,
-  bonusPaymentType: 'annual',
-  severancePaymentType: 'end-of-service',
-  leavesBuyback: false,
-  insuranceRate: LEGAL_CONSTANTS_2026.employeeInsuranceRate,
-  taxExemption: LEGAL_CONSTANTS_2026.monthlyTaxExemption,
-});
+const DEFAULT_ORG_UNITS = ['منابع انسانی', 'مالی', 'فنی', 'پشتیبانی', 'فروش'];
 
 export default function AddEmployee() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<Step>(1);
-  const [alertMessage, setAlertMessage] = useState<{ type: 'info' | 'warning' | 'success'; text: string } | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [orgUnitInput, setOrgUnitInput] = useState('');
+  const [orgUnitOptions, setOrgUnitOptions] = useState<string[]>(DEFAULT_ORG_UNITS);
   const [formData, setFormData] = useState<FormData>({
     phone: '',
     email: '',
@@ -100,53 +37,53 @@ export default function AddEmployee() {
     maritalStatus: 'single',
     personnelCode: '',
     workGroup: '',
-    position: '',
-    fatherName: '',
-    birthDate: '',
-    accountNumber: '',
-    cardNumber: '',
-    shaba: '',
-    guarantees: '',
-    contractStartDate: '',
-    contractEndDate: '',
-    agreementType: 'monthly-fixed',
-    agreement: createDefaultAgreement(),
+    orgUnits: [],
   });
 
+  const progress = useMemo(() => (currentStep / 2) * 100, [currentStep]);
   const steps = [
-    { step: 1, title: 'اطلاعات پایه' },
-    { step: 2, title: 'اطلاعات فردی', optional: true },
-    { step: 3, title: 'اطلاعات پرداخت', optional: true },
-    { step: 4, title: 'قرارداد و مزایا' },
-  ] as const;
-
-  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-    setAvatarPreview(URL.createObjectURL(file));
-  };
+    { step: 1 as const, title: 'اطلاعات پایه' },
+    { step: 2 as const, title: 'اطلاعات سازمانی' },
+  ];
 
   const handleBack = () => {
-    setAlertMessage(null);
-    if (currentStep === 1) navigate('/employees');
-    else setCurrentStep((prev) => (prev - 1) as Step);
+    if (currentStep === 1) {
+      navigate('/employees');
+      return;
+    }
+    setCurrentStep(1);
+  };
+
+  const toggleOrgUnit = (unit: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      orgUnits: prev.orgUnits.includes(unit) ? prev.orgUnits.filter((u) => u !== unit) : [...prev.orgUnits, unit],
+    }));
+  };
+
+  const addCustomOrgUnit = () => {
+    const cleaned = orgUnitInput.trim();
+    if (!cleaned) return;
+    if (!orgUnitOptions.includes(cleaned)) setOrgUnitOptions((prev) => [cleaned, ...prev]);
+    setFormData((prev) => ({
+      ...prev,
+      orgUnits: prev.orgUnits.includes(cleaned) ? prev.orgUnits : [...prev.orgUnits, cleaned],
+    }));
+    setOrgUnitInput('');
+  };
+
+  const removeSelectedOrgUnit = (unit: string) => {
+    setFormData((prev) => ({ ...prev, orgUnits: prev.orgUnits.filter((u) => u !== unit) }));
   };
 
   const handleNext = () => {
-    setAlertMessage(null);
-    if (currentStep < 4) setCurrentStep((prev) => (prev + 1) as Step);
-  };
+    if (currentStep === 1) {
+      setCurrentStep(2);
+      return;
+    }
 
-  const handleSkip = () => {
-    setAlertMessage(null);
-    if (currentStep === 2 || currentStep === 3) setCurrentStep((prev) => (prev + 1) as Step);
-  };
-
-  const handleSave = () => {
-    console.log('Saving employee with contract:', formData);
-    setAlertMessage({ type: 'success', text: 'کاربر و قرارداد با موفقیت ثبت شد.' });
-    setTimeout(() => navigate('/employees'), 1200);
+    const newId = `emp-${Date.now()}`;
+    navigate(`/employees/${newId}`);
   };
 
   return (
@@ -163,30 +100,27 @@ export default function AddEmployee() {
                 <ChevronRight className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-white">افزودن کاربر</h1>
-                <p className="text-sm text-slate-300/90 mt-1">طراحی‌شده برای ورود سریع، دقیق و مرحله‌به‌مرحله اطلاعات پرسنلی</p>
+                <h1 className="text-2xl sm:text-3xl font-black text-white">افزودن کارمند</h1>
+                <p className="text-sm text-slate-300/90 mt-1">فرم ثبت کارمند در دو مرحله کوتاه</p>
               </div>
             </div>
             <div className="hidden sm:block text-left">
               <div className="text-xs text-slate-300">پیشرفت فرم</div>
-              <div className="text-xl font-black text-white">{Math.round((currentStep / 4) * 100)}%</div>
+              <div className="text-xl font-black text-white">{Math.round(progress)}%</div>
             </div>
           </div>
 
           <div className="mt-5 h-2 w-full rounded-full bg-slate-800/80 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-300"
-              style={{ width: `${(currentStep / 4) * 100}%` }}
-            />
+            <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-300" style={{ width: `${progress}%` }} />
           </div>
 
-          <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="mt-5 grid grid-cols-2 gap-3">
             {steps.map((item) => (
               <button
                 key={item.step}
                 onClick={() => item.step <= currentStep && setCurrentStep(item.step)}
                 className={cn(
-                  'group rounded-2xl border px-3 py-3 text-right transition-all',
+                  'rounded-2xl border px-3 py-3 text-right transition-all',
                   item.step === currentStep
                     ? 'bg-indigo-500/20 border-indigo-400/50 shadow-lg shadow-indigo-500/20'
                     : item.step < currentStep
@@ -207,14 +141,8 @@ export default function AddEmployee() {
                   >
                     {item.step < currentStep ? <CheckCircle2 className="w-4 h-4" /> : item.step}
                   </span>
-                  {item.optional && <span className="text-[10px] text-slate-300 bg-white/10 px-2 py-0.5 rounded-full">اختیاری</span>}
                 </div>
-                <div
-                  className={cn(
-                    'mt-2 text-sm font-bold',
-                    item.step === currentStep ? 'text-white' : item.step < currentStep ? 'text-emerald-300' : 'text-slate-300'
-                  )}
-                >
+                <div className={cn('mt-2 text-sm font-bold', item.step === currentStep ? 'text-white' : item.step < currentStep ? 'text-emerald-300' : 'text-slate-300')}>
                   {item.title}
                 </div>
               </button>
@@ -222,31 +150,17 @@ export default function AddEmployee() {
           </div>
         </div>
 
-        {alertMessage && (
-          <div
-            className={cn(
-              'p-4 rounded-lg mb-6 flex items-start gap-3',
-              alertMessage.type === 'success' && 'bg-green-500/10 border border-green-500/20 text-green-400',
-              alertMessage.type === 'warning' && 'bg-amber-500/10 border border-amber-500/20 text-amber-400',
-              alertMessage.type === 'info' && 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
-            )}
-          >
-            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <p className="text-sm">{alertMessage.text}</p>
-          </div>
-        )}
-
         {currentStep === 1 && (
           <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-white font-extrabold text-lg">اطلاعات پایه</h2>
-                <p className="text-xs text-slate-400 mt-1">اطلاعات هویتی و کانال‌های ارتباطی کاربر را ثبت کنید.</p>
+                <p className="text-xs text-slate-400 mt-1">مشابه فلو سرویس مدیریت کاربران</p>
               </div>
               <div className="text-xs text-indigo-300 bg-indigo-500/15 border border-indigo-400/30 px-3 py-1.5 rounded-full">Step 1</div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <LabeledField label="شماره موبایل">
                   <input className="input-field" placeholder="0912..." value={formData.phone} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} />
                 </LabeledField>
@@ -263,23 +177,6 @@ export default function AddEmployee() {
                   <input className="input-field" placeholder="کد ملی 10 رقمی" value={formData.nationalId} onChange={(e) => setFormData((p) => ({ ...p, nationalId: e.target.value }))} />
                 </LabeledField>
               </div>
-
-              <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-4">
-                <div className="text-xs text-slate-400 mb-3">تصویر پروفایل</div>
-                <label className="block cursor-pointer">
-                  <div className="h-40 rounded-xl border border-dashed border-indigo-400/35 bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors flex flex-col items-center justify-center gap-2">
-                    {avatarPreview ? (
-                      <img src={avatarPreview} alt="avatar" className="w-24 h-24 rounded-full object-cover border border-white/20" />
-                    ) : (
-                      <>
-                        <UploadCloud className="w-7 h-7 text-indigo-300" />
-                        <span className="text-xs text-slate-300">آپلود تصویر</span>
-                      </>
-                    )}
-                  </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                </label>
-              </div>
             </div>
           </section>
         )}
@@ -288,10 +185,10 @@ export default function AddEmployee() {
           <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-white font-extrabold text-lg">اطلاعات فردی</h2>
-                <p className="text-xs text-slate-400 mt-1">جزئیات شناسنامه‌ای و سازمانی فرد را تنظیم کنید.</p>
+                <h2 className="text-white font-extrabold text-lg">اطلاعات سازمانی</h2>
+                <p className="text-xs text-slate-400 mt-1">نام پدر و تاریخ تولد حذف شده و واحد سازمانی چندتایی است.</p>
               </div>
-              <div className="text-xs text-slate-300 bg-slate-800 px-3 py-1.5 rounded-full">اختیاری</div>
+              <div className="text-xs text-indigo-300 bg-indigo-500/15 border border-indigo-400/30 px-3 py-1.5 rounded-full">Step 2</div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <LabeledField label="تعداد فرزند">
@@ -313,133 +210,77 @@ export default function AddEmployee() {
                   {WORK_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
               </LabeledField>
-              <LabeledField label="سمت سازمانی">
-                <select className="input-field" value={formData.position} onChange={(e) => setFormData((p) => ({ ...p, position: e.target.value }))}>
-                  <option value="">انتخاب سمت سازمانی</option>
-                  {POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </LabeledField>
-              <LabeledField label="نام پدر">
-                <input className="input-field" placeholder="نام پدر" value={formData.fatherName} onChange={(e) => setFormData((p) => ({ ...p, fatherName: e.target.value }))} />
-              </LabeledField>
-              <LabeledField label="تاریخ تولد" className="sm:col-span-2">
-                <input className="input-field" type="date" value={formData.birthDate} onChange={(e) => setFormData((p) => ({ ...p, birthDate: e.target.value }))} />
+              <LabeledField label="واحد سازمانی" className="sm:col-span-2">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {orgUnitOptions.map((unit) => (
+                      <button
+                        key={unit}
+                        type="button"
+                        onClick={() => toggleOrgUnit(unit)}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full border text-xs transition-colors',
+                          formData.orgUnits.includes(unit)
+                            ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-200'
+                            : 'bg-slate-800/60 border-white/15 text-slate-300 hover:border-white/30'
+                        )}
+                      >
+                        {unit}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      className="input-field"
+                      placeholder="افزودن واحد سازمانی جدید"
+                      value={orgUnitInput}
+                      onChange={(e) => setOrgUnitInput(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={addCustomOrgUnit}
+                      className="px-4 py-2.5 rounded-xl border border-white/15 text-slate-200 hover:border-white/30 inline-flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      افزودن
+                    </button>
+                  </div>
+
+                  {formData.orgUnits.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {formData.orgUnits.map((unit) => (
+                        <span key={unit} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-xs">
+                          {unit}
+                          <button type="button" onClick={() => removeSelectedOrgUnit(unit)} className="text-emerald-100/80 hover:text-white">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </LabeledField>
             </div>
           </section>
         )}
 
-        {currentStep === 3 && (
-          <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-white font-extrabold text-lg">اطلاعات پرداخت</h2>
-                <p className="text-xs text-slate-400 mt-1">اطلاعات بانکی و موارد مالی تکمیلی را وارد کنید.</p>
-              </div>
-              <div className="text-xs text-slate-300 bg-slate-800 px-3 py-1.5 rounded-full">اختیاری</div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <LabeledField label="شماره حساب">
-                <input className="input-field" placeholder="شماره حساب" value={formData.accountNumber} onChange={(e) => setFormData((p) => ({ ...p, accountNumber: e.target.value }))} />
-              </LabeledField>
-              <LabeledField label="شماره کارت بانکی">
-                <input className="input-field" placeholder="شماره کارت بانکی" value={formData.cardNumber} onChange={(e) => setFormData((p) => ({ ...p, cardNumber: e.target.value }))} />
-              </LabeledField>
-              <LabeledField label="شماره شبا" className="sm:col-span-2">
-                <input className="input-field" placeholder="IR..." value={formData.shaba} onChange={(e) => setFormData((p) => ({ ...p, shaba: e.target.value }))} />
-              </LabeledField>
-              <LabeledField label="ضمانت‌ها" className="sm:col-span-2">
-                <textarea className="input-field min-h-[100px]" placeholder="توضیحات ضمانت‌ها" value={formData.guarantees} onChange={(e) => setFormData((p) => ({ ...p, guarantees: e.target.value }))} />
-              </LabeledField>
-            </div>
-          </section>
-        )}
-
-        {currentStep === 4 && (
-          <div className="space-y-4">
-            <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6">
-              <div className="flex items-center gap-2 mb-4 text-white">
-                <FileText className="w-4 h-4 text-indigo-300" />
-                <h2 className="font-bold">قرارداد</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="text-xs text-slate-400">نوع قرارداد مالی</label>
-                  <select
-                    className="input-field mt-2"
-                    value={formData.agreementType}
-                    onChange={(e) => setFormData((p) => ({ ...p, agreementType: e.target.value as AgreementType }))}
-                  >
-                    <option value="monthly-fixed">ثابت ماهیانه</option>
-                    <option value="daily-wage">روزمزد</option>
-                    <option value="hourly">ساعتی</option>
-                    <option value="project-based">پروژه‌ای</option>
-                    <option value="consulting">مشاوره‌ای</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400">تاریخ شروع قرارداد</label>
-                  <input className="input-field mt-2" type="date" value={formData.contractStartDate} onChange={(e) => setFormData((p) => ({ ...p, contractStartDate: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400">تاریخ پایان قرارداد (اختیاری)</label>
-                  <input className="input-field mt-2" type="date" value={formData.contractEndDate} onChange={(e) => setFormData((p) => ({ ...p, contractEndDate: e.target.value }))} />
-                </div>
-              </div>
-              {formData.agreementType !== 'monthly-fixed' && (
-                <div className="mt-4 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg p-3">
-                  در نسخه فعلی، محاسبات کامل فقط برای قرارداد «ثابت ماهیانه» فعال است.
-                </div>
-              )}
-            </section>
-
-            {formData.agreementType === 'monthly-fixed' ? (
-              <MonthlyFixedForm agreement={formData.agreement} onChange={(agreement) => setFormData((p) => ({ ...p, agreement }))} />
-            ) : (
-              <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6 text-sm text-slate-300">
-                این نوع قرارداد هنوز به موتور محاسبات حقوق متصل نشده است.
-              </section>
-            )}
-          </div>
-        )}
-
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 bg-slate-900/65 border border-white/10 rounded-2xl p-4">
+        <div className="mt-8 flex items-center justify-between gap-3 bg-slate-900/65 border border-white/10 rounded-2xl p-4">
           <button onClick={handleBack} className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 transition-all">
-            {currentStep === 1 ? 'بازگشت به کاربران' : 'مرحله قبل'}
+            {currentStep === 1 ? 'بازگشت به کارمندان' : 'مرحله قبل'}
           </button>
-          <div className="flex items-center gap-2">
-            {(currentStep === 2 || currentStep === 3) && (
-              <button onClick={handleSkip} className="px-4 py-2.5 rounded-xl border border-dashed border-slate-600 text-slate-400 hover:text-slate-200 transition-all">
-                رد کردن این مرحله
-              </button>
-            )}
-            {currentStep < 4 ? (
-              <button onClick={handleNext} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 hover:brightness-110 text-white font-semibold transition-all shadow-lg shadow-indigo-500/25">
-                مرحله بعد
-              </button>
-            ) : (
-              <button onClick={handleSave} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:brightness-110 text-white font-semibold transition-all shadow-lg shadow-emerald-500/25">
-                ثبت کاربر
-              </button>
-            )}
-          </div>
+          <button onClick={handleNext} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 hover:brightness-110 text-white font-semibold transition-all shadow-lg shadow-indigo-500/25">
+            {currentStep === 2 ? 'ورود به جزئیات کارمند' : 'مرحله بعد'}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function LabeledField({
-  label,
-  className,
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: ReactNode;
-}) {
+function LabeledField({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-1.5', className)}>
       <label className="text-xs text-slate-400">{label}</label>
       {children}
     </div>
