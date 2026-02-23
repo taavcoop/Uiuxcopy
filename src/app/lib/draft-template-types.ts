@@ -77,6 +77,8 @@ export interface DraftTemplatePayroll {
   monthlyRequiredHours: string;
   hourlyRateOverrideDraft: string;
   hourlyRateOverride: string;
+  globalInsuranceEnabled: boolean;
+  globalTaxEnabled: boolean;
 
   baseSalary: PayrollField;
   seniorityBase: PayrollField;
@@ -158,6 +160,8 @@ export const createEmptyDraftTemplate = (): DraftTemplate => ({
     monthlyRequiredHours: '',
     hourlyRateOverrideDraft: '',
     hourlyRateOverride: '',
+    globalInsuranceEnabled: true,
+    globalTaxEnabled: true,
 
     baseSalary: createPayrollField(),
     seniorityBase: createPayrollField(),

@@ -125,6 +125,13 @@ const DEDUCTION_FIELDS: Array<{ key: PayrollScalarKey; label: string }> = [
   { key: 'insuranceCapMultiplier', label: 'ضریب سقف مشمول بیمه' },
   { key: 'monthlyTaxExemption', label: 'معافیت مالیاتی ماهانه' },
 ];
+const INSURANCE_DEDUCTION_FIELD_KEYS = new Set<PayrollScalarKey>([
+  'workerInsuranceRate',
+  'employerInsuranceRate',
+  'unemploymentInsuranceRate',
+  'insuranceCapMultiplier',
+]);
+const TAX_DEDUCTION_FIELD_KEYS = new Set<PayrollScalarKey>(['monthlyTaxExemption']);
 
 const OVER_MIN_WAGE_TARGET_LABELS: Record<string, string> = {
   attractionAllowance: 'حق جذب',
@@ -281,6 +288,8 @@ const hydrateTemplate = (input: DraftTemplate): DraftTemplate => {
     ...base.payroll,
     ...rawPayroll,
     draftKind: ENABLED_DRAFT_KINDS.has(rawPayroll.draftKind) ? rawPayroll.draftKind : 'monthly_fixed',
+    globalInsuranceEnabled: rawPayroll.globalInsuranceEnabled ?? true,
+    globalTaxEnabled: rawPayroll.globalTaxEnabled ?? true,
     fixedAdjustments: Array.isArray(rawPayroll.fixedAdjustments)
       ? rawPayroll.fixedAdjustments.map((item) => ({
           ...item,
@@ -419,6 +428,13 @@ export default function DraftTemplateEditor() {
     toNumber(template.payroll.workerInsuranceRate) +
     toNumber(template.payroll.employerInsuranceRate) +
     toNumber(template.payroll.unemploymentInsuranceRate);
+  const showInsuranceCoverageOptions = template.payroll.globalInsuranceEnabled;
+  const showTaxCoverageOptions = template.payroll.globalTaxEnabled;
+  const visibleDeductionFields = DEDUCTION_FIELDS.filter(
+    (item) =>
+      (showInsuranceCoverageOptions && INSURANCE_DEDUCTION_FIELD_KEYS.has(item.key)) ||
+      (showTaxCoverageOptions && TAX_DEDUCTION_FIELD_KEYS.has(item.key)),
+  );
 
   if (isEdit && !existing) {
     return (
@@ -666,63 +682,6 @@ export default function DraftTemplateEditor() {
     if (!isEdit) navigate(`/draft-templates/${prepared.id}`, { replace: true });
   };
 
-  const saveAllChanges = () => {
-    const sectionsToSave: SectionId[] = hasPayrollPackage
-      ? [
-          'base',
-          'attendance',
-          'payroll_setup',
-          ...(template.payroll.inputMode === 'manual'
-            ? ([
-                'payroll_main',
-                'payroll_job_benefits',
-                'payroll_other_benefits',
-                'payroll_fixed_adjustments',
-                'payroll_time_coeffs',
-                'payroll_shift',
-                'payroll_legal',
-                'payroll_deductions',
-              ] as SectionId[])
-            : []),
-        ]
-      : ['base', 'attendance'];
-
-    for (const section of sectionsToSave) {
-      const sectionError = getSectionSaveError(section);
-      if (sectionError) {
-        setNotice({ type: 'error', text: sectionError });
-        return;
-      }
-    }
-
-    const now = new Date().toISOString();
-    const normalizedPayroll = normalizeBaseWageFlags({
-      ...template.payroll,
-      taxBrackets: normalizeTaxBrackets(template.payroll.monthlyTaxExemption, template.payroll.taxBrackets),
-      hourlyRateOverride:
-        template.payroll.hourlyRateOverrideDraft.trim() ||
-        (calculatedHourlyRate > 0 ? String(Number(calculatedHourlyRate.toFixed(2))) : ''),
-    });
-
-    const prepared: DraftTemplate = {
-      ...template,
-      payroll: normalizedPayroll,
-      updatedAt: now,
-      savedSections: sectionsToSave.reduce<Record<string, string>>(
-        (acc, section) => {
-          acc[section] = now;
-          return acc;
-        },
-        { ...template.savedSections },
-      ),
-    };
-
-    upsertDraftTemplate(prepared);
-    setTemplate(prepared);
-    setNotice({ type: 'success', text: 'همه تغییرات قابل‌نمایش در فرم با یک بار ذخیره اعمال شد.' });
-    if (!isEdit) navigate(`/draft-templates/${prepared.id}`, { replace: true });
-  };
-
   const monthly = toNumber(template.payroll.monthlyRequiredHours);
   const perDay = monthly ? formatHourMinute(monthly / 30) : '۰ ساعت و ۰ دقیقه';
   const perWeek = monthly ? formatHourMinute((monthly / 30) * 6) : '۰ ساعت و ۰ دقیقه';
@@ -743,12 +702,12 @@ export default function DraftTemplateEditor() {
       : legalGross30;
   const calculatedHourlyRate =
     baseWageMonthly > 0 ? baseWageMonthly / STANDARD_MONTHLY_WORK_HOURS_FOR_HOURLY_RATE : 0;
-  const workerInsuranceAmount = grossPay30 * (toNumber(template.payroll.workerInsuranceRate) / 100);
-  const estimatedTaxAmount = estimateMonthlyTax(
-    grossPay30,
-    template.payroll.monthlyTaxExemption,
-    template.payroll.taxBrackets,
-  );
+  const workerInsuranceAmount = showInsuranceCoverageOptions
+    ? grossPay30 * (toNumber(template.payroll.workerInsuranceRate) / 100)
+    : 0;
+  const estimatedTaxAmount = showTaxCoverageOptions
+    ? estimateMonthlyTax(grossPay30, template.payroll.monthlyTaxExemption, template.payroll.taxBrackets)
+    : 0;
   const netPay30 = Math.max(0, grossPay30 - workerInsuranceAmount - estimatedTaxAmount);
   const hasAppliedHourlyOverride =
     Boolean(template.savedSections.payroll_setup) && Boolean(template.payroll.hourlyRateOverride.trim());
@@ -775,17 +734,6 @@ export default function DraftTemplateEditor() {
               <p className="text-sm text-slate-400 mt-1">ذخیره هر بخش به‌صورت مستقل انجام می‌شود.</p>
             </div>
           </div>
-        </div>
-
-        <div className="sticky top-3 z-30 flex justify-end">
-          <button
-            type="button"
-            onClick={saveAllChanges}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
-          >
-            <Save className="w-4 h-4" />
-            ذخیره همه تغییرات
-          </button>
         </div>
 
         {notice && (
@@ -1017,6 +965,35 @@ export default function DraftTemplateEditor() {
                 </button>
               </div>
 
+              <div className="rounded-2xl border border-white/10 bg-slate-800/40 p-4 mt-4 space-y-3">
+                <div className="text-sm font-bold text-white">انتخاب پرداخت‌های قانونی این قالب</div>
+                <div className="text-xs text-slate-400">
+                  هر گزینه را روشن/خاموش کنید. با خاموش شدن، تنظیمات همان بخش در فرم هم پنهان می‌شود.
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ToggleChip
+                    checked={template.payroll.globalInsuranceEnabled}
+                    label="پرداخت بیمه"
+                    onChange={(checked) =>
+                      setTemplate((prev) => ({
+                        ...prev,
+                        payroll: { ...prev.payroll, globalInsuranceEnabled: checked },
+                      }))
+                    }
+                  />
+                  <ToggleChip
+                    checked={template.payroll.globalTaxEnabled}
+                    label="پرداخت مالیات"
+                    onChange={(checked) =>
+                      setTemplate((prev) => ({
+                        ...prev,
+                        payroll: { ...prev.payroll, globalTaxEnabled: checked },
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
                 <div className="bg-slate-800/50 border border-white/10 rounded-xl p-3 space-y-2">
                   <div className="text-xs text-slate-400">
@@ -1180,16 +1157,20 @@ export default function DraftTemplateEditor() {
                               </button>
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                              <ToggleChip
-                                checked={item.insurance}
-                                label="مشمول بیمه"
-                                onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
-                              />
-                              <ToggleChip
-                                checked={item.tax}
-                                label="مشمول مالیات"
-                                onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
-                              />
+                              {showInsuranceCoverageOptions && (
+                                <ToggleChip
+                                  checked={item.insurance}
+                                  label="مشمول بیمه"
+                                  onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
+                                />
+                              )}
+                              {showTaxCoverageOptions && (
+                                <ToggleChip
+                                  checked={item.tax}
+                                  label="مشمول مالیات"
+                                  onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
+                                />
+                              )}
                               <ToggleChip
                                 checked={item.calcType === 'base_wage_factor' ? false : item.baseWage}
                                 label="قابل احتساب در مزد مبنا"
@@ -1274,16 +1255,20 @@ export default function DraftTemplateEditor() {
                               </button>
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                              <ToggleChip
-                                checked={item.insurance}
-                                label="مشمول بیمه"
-                                onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
-                              />
-                              <ToggleChip
-                                checked={item.tax}
-                                label="مشمول مالیات"
-                                onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
-                              />
+                              {showInsuranceCoverageOptions && (
+                                <ToggleChip
+                                  checked={item.insurance}
+                                  label="مشمول بیمه"
+                                  onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
+                                />
+                              )}
+                              {showTaxCoverageOptions && (
+                                <ToggleChip
+                                  checked={item.tax}
+                                  label="مشمول مالیات"
+                                  onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
+                                />
+                              )}
                               <ToggleChip
                                 checked={item.calcType === 'base_wage_factor' ? false : item.baseWage}
                                 label="قابل احتساب در مزد مبنا"
@@ -1333,6 +1318,8 @@ export default function DraftTemplateEditor() {
                         label={item.label}
                         tooltip={PAYROLL_FIELD_TOOLTIPS[item.key]}
                         field={template.payroll[item.key]}
+                        showInsuranceToggle={showInsuranceCoverageOptions}
+                        showTaxToggle={showTaxCoverageOptions}
                         onChange={(patch) => setPayrollField(item.key, patch)}
                       />
                     ))}
@@ -1353,6 +1340,8 @@ export default function DraftTemplateEditor() {
                         label={item.label}
                         tooltip={PAYROLL_FIELD_TOOLTIPS[item.key]}
                         field={template.payroll[item.key]}
+                        showInsuranceToggle={showInsuranceCoverageOptions}
+                        showTaxToggle={showTaxCoverageOptions}
                         onChange={(patch) => setPayrollField(item.key, patch)}
                       />
                     ))}
@@ -1370,6 +1359,8 @@ export default function DraftTemplateEditor() {
                     label="سایر مزایا"
                     tooltip={PAYROLL_FIELD_TOOLTIPS.otherBenefits}
                     field={template.payroll.otherBenefits}
+                    showInsuranceToggle={showInsuranceCoverageOptions}
+                    showTaxToggle={showTaxCoverageOptions}
                     onChange={(patch) => setPayrollField('otherBenefits', patch)}
                   />
                 </SectionCard>
@@ -1464,16 +1455,20 @@ export default function DraftTemplateEditor() {
                           </button>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                          <ToggleChip
-                            checked={item.insurance}
-                            label="مشمول بیمه"
-                            onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
-                          />
-                          <ToggleChip
-                            checked={item.tax}
-                            label="مشمول مالیات"
-                            onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
-                          />
+                          {showInsuranceCoverageOptions && (
+                            <ToggleChip
+                              checked={item.insurance}
+                              label="مشمول بیمه"
+                              onChange={(checked) => updateFixedAdjustment(item.id, { insurance: checked })}
+                            />
+                          )}
+                          {showTaxCoverageOptions && (
+                            <ToggleChip
+                              checked={item.tax}
+                              label="مشمول مالیات"
+                              onChange={(checked) => updateFixedAdjustment(item.id, { tax: checked })}
+                            />
+                          )}
                           <ToggleChip
                             checked={item.calcType === 'base_wage_factor' ? false : item.baseWage}
                             label="قابل احتساب در مزد مبنا"
@@ -1500,6 +1495,8 @@ export default function DraftTemplateEditor() {
                         label={item.label}
                         tooltip={PAYROLL_FIELD_TOOLTIPS[item.key]}
                         field={template.payroll[item.key]}
+                        showInsuranceToggle={showInsuranceCoverageOptions}
+                        showTaxToggle={showTaxCoverageOptions}
                         allowBaseWageToggle={false}
                         onChange={(patch) => setPayrollField(item.key, patch)}
                       />
@@ -1514,37 +1511,44 @@ export default function DraftTemplateEditor() {
                   onSave={() => saveSection('payroll_shift')}
                   disabledSave={!baseReady}
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => setShiftCoverage('insurance', !shiftCoverage.insurance)}
-                      className={`rounded-xl border p-3 text-right transition-all ${
-                        shiftCoverage.insurance
-                          ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-100'
-                          : 'bg-rose-500/15 border-rose-400/50 text-rose-100'
-                      }`}
-                    >
-                      <div className="text-sm font-semibold">
-                        مشمول بیمه {shiftCoverage.insurance ? 'فعال' : 'غیرفعال'}
-                      </div>
-                      <div className="text-xs opacity-80 mt-1">این تنظیم برای تمام آیتم‌های نوبت‌کاری اعمال می‌شود.</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShiftCoverage('tax', !shiftCoverage.tax)}
-                      className={`rounded-xl border p-3 text-right transition-all ${
-                        shiftCoverage.tax
-                          ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-100'
-                          : 'bg-rose-500/15 border-rose-400/50 text-rose-100'
-                      }`}
-                    >
-                      <div className="text-sm font-semibold">
-                        مشمول مالیات {shiftCoverage.tax ? 'فعال' : 'غیرفعال'}
-                      </div>
-                      <div className="text-xs opacity-80 mt-1">این تنظیم برای تمام آیتم‌های نوبت‌کاری اعمال می‌شود.</div>
-                    </button>
-                  </div>
-                  {(!shiftCoverage.insurance || !shiftCoverage.tax) && (
+                  {(showInsuranceCoverageOptions || showTaxCoverageOptions) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                      {showInsuranceCoverageOptions && (
+                        <button
+                          type="button"
+                          onClick={() => setShiftCoverage('insurance', !shiftCoverage.insurance)}
+                          className={`rounded-xl border p-3 text-right transition-all ${
+                            shiftCoverage.insurance
+                              ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-100'
+                              : 'bg-rose-500/15 border-rose-400/50 text-rose-100'
+                          }`}
+                        >
+                          <div className="text-sm font-semibold">
+                            مشمول بیمه {shiftCoverage.insurance ? 'فعال' : 'غیرفعال'}
+                          </div>
+                          <div className="text-xs opacity-80 mt-1">این تنظیم برای تمام آیتم‌های نوبت‌کاری اعمال می‌شود.</div>
+                        </button>
+                      )}
+                      {showTaxCoverageOptions && (
+                        <button
+                          type="button"
+                          onClick={() => setShiftCoverage('tax', !shiftCoverage.tax)}
+                          className={`rounded-xl border p-3 text-right transition-all ${
+                            shiftCoverage.tax
+                              ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-100'
+                              : 'bg-rose-500/15 border-rose-400/50 text-rose-100'
+                          }`}
+                        >
+                          <div className="text-sm font-semibold">
+                            مشمول مالیات {shiftCoverage.tax ? 'فعال' : 'غیرفعال'}
+                          </div>
+                          <div className="text-xs opacity-80 mt-1">این تنظیم برای تمام آیتم‌های نوبت‌کاری اعمال می‌شود.</div>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {((showInsuranceCoverageOptions && !shiftCoverage.insurance) ||
+                    (showTaxCoverageOptions && !shiftCoverage.tax)) && (
                     <div className="mb-3 text-xs text-rose-200 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3">
                       هشدار: غیرفعال کردن بیمه یا مالیات در نوبت‌کاری می‌تواند منجر به جریمه مالیاتی شود.
                     </div>
@@ -1581,6 +1585,8 @@ export default function DraftTemplateEditor() {
                         label="عیدی"
                         tooltip={PAYROLL_FIELD_TOOLTIPS.eydi}
                         field={template.payroll.eydi}
+                        showInsuranceToggle={showInsuranceCoverageOptions}
+                        showTaxToggle={showTaxCoverageOptions}
                         allowBaseWageToggle={false}
                         onChange={(patch) => setPayrollField('eydi', patch)}
                       />
@@ -1625,6 +1631,8 @@ export default function DraftTemplateEditor() {
                         label="حق سنوات"
                         tooltip={PAYROLL_FIELD_TOOLTIPS.severancePay}
                         field={template.payroll.severancePay}
+                        showInsuranceToggle={showInsuranceCoverageOptions}
+                        showTaxToggle={showTaxCoverageOptions}
                         allowBaseWageToggle={false}
                         onChange={(patch) => setPayrollField('severancePay', patch)}
                       />
@@ -1676,121 +1684,136 @@ export default function DraftTemplateEditor() {
                   onSave={() => saveSection('payroll_deductions')}
                   disabledSave={!baseReady}
                 >
-                  <div className="mb-3 text-xs text-slate-200 bg-slate-800/50 border border-white/10 rounded-lg p-3">
-                    سهم بیمه کارگر و کارفرما سرجمع باید 30 درصد باشد.
-                  </div>
-                  {insuranceRateTotal !== 30 && (
-                    <div className="mb-3 text-xs bg-rose-500/10 border border-rose-500/30 text-rose-200 rounded-lg p-3">
-                      {insuranceRateTotal < 30
-                        ? `هشدار: جمع نرخ بیمه‌ها ${insuranceRateTotal}٪ است و کمتر از 30٪ می‌باشد.`
-                        : `هشدار: جمع نرخ بیمه‌ها ${insuranceRateTotal}٪ است و بیشتر از 30٪ می‌باشد.`}
+                  {!showInsuranceCoverageOptions && !showTaxCoverageOptions && (
+                    <div className="text-xs text-slate-300 bg-slate-800/50 border border-white/10 rounded-lg p-3">
+                      چون «پرداخت بیمه» و «پرداخت مالیات» خاموش هستند، تنظیمات این بخش نمایش داده نمی‌شود.
                     </div>
                   )}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    {DEDUCTION_FIELDS.map((item) => (
-                      <Field key={item.key} label={item.label} tooltip={PAYROLL_SCALAR_TOOLTIPS[item.key]}>
-                        <input
-                          type="number"
-                          value={template.payroll[item.key]}
-                          onChange={(e) => setPayrollScalar(item.key, e.target.value)}
-                          className="input-field"
-                        />
-                      </Field>
-                    ))}
-                  </div>
 
-                  <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="text-sm font-bold text-slate-100">پله های مالیات حقوق</h4>
-                      <button
-                        onClick={() =>
-                          setTemplate((prev) => ({
-                            ...prev,
-                            payroll: {
-                              ...prev.payroll,
-                              taxBrackets: normalizeTaxBrackets(prev.payroll.monthlyTaxExemption, [
-                                ...prev.payroll.taxBrackets,
-                                { id: `tax-${Date.now()}`, start: '', end: '', rate: '' },
-                              ]),
-                            },
-                          }))
-                        }
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        افزودن پله
-                      </button>
-                    </div>
+                  {showInsuranceCoverageOptions && (
+                    <>
+                      <div className="mb-3 text-xs text-slate-200 bg-slate-800/50 border border-white/10 rounded-lg p-3">
+                        سهم بیمه کارگر و کارفرما سرجمع باید 30 درصد باشد.
+                      </div>
+                      {insuranceRateTotal !== 30 && (
+                        <div className="mb-3 text-xs bg-rose-500/10 border border-rose-500/30 text-rose-200 rounded-lg p-3">
+                          {insuranceRateTotal < 30
+                            ? `هشدار: جمع نرخ بیمه‌ها ${insuranceRateTotal}٪ است و کمتر از 30٪ می‌باشد.`
+                            : `هشدار: جمع نرخ بیمه‌ها ${insuranceRateTotal}٪ است و بیشتر از 30٪ می‌باشد.`}
+                        </div>
+                      )}
+                    </>
+                  )}
 
-                    {template.payroll.taxBrackets.map((bracket, idx) => (
-                      <div key={bracket.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                        <Field label={`پله ${idx + 1} - مبلغ شروع`}>
-                          <input type="text" className="input-field opacity-70" value={bracket.start} readOnly />
-                        </Field>
-                        <Field label="مبلغ پایان">
+                  {visibleDeductionFields.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      {visibleDeductionFields.map((item) => (
+                        <Field key={item.key} label={item.label} tooltip={PAYROLL_SCALAR_TOOLTIPS[item.key]}>
                           <input
                             type="number"
+                            value={template.payroll[item.key]}
+                            onChange={(e) => setPayrollScalar(item.key, e.target.value)}
                             className="input-field"
-                            value={bracket.end}
-                            onChange={(e) =>
+                          />
+                        </Field>
+                      ))}
+                    </div>
+                  )}
+
+                  {showTaxCoverageOptions && (
+                    <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-sm font-bold text-slate-100">پله های مالیات حقوق</h4>
+                        <button
+                          onClick={() =>
+                            setTemplate((prev) => ({
+                              ...prev,
+                              payroll: {
+                                ...prev.payroll,
+                                taxBrackets: normalizeTaxBrackets(prev.payroll.monthlyTaxExemption, [
+                                  ...prev.payroll.taxBrackets,
+                                  { id: `tax-${Date.now()}`, start: '', end: '', rate: '' },
+                                ]),
+                              },
+                            }))
+                          }
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          افزودن پله
+                        </button>
+                      </div>
+
+                      {template.payroll.taxBrackets.map((bracket, idx) => (
+                        <div key={bracket.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                          <Field label={`پله ${idx + 1} - مبلغ شروع`}>
+                            <input type="text" className="input-field opacity-70" value={bracket.start} readOnly />
+                          </Field>
+                          <Field label="مبلغ پایان">
+                            <input
+                              type="number"
+                              className="input-field"
+                              value={bracket.end}
+                              onChange={(e) =>
+                                setTemplate((prev) => {
+                                  const next = prev.payroll.taxBrackets.map((row) =>
+                                    row.id === bracket.id ? { ...row, end: e.target.value } : row,
+                                  );
+                                  return {
+                                    ...prev,
+                                    payroll: {
+                                      ...prev.payroll,
+                                      taxBrackets: normalizeTaxBrackets(prev.payroll.monthlyTaxExemption, next),
+                                    },
+                                  };
+                                })
+                              }
+                            />
+                          </Field>
+                          <Field label="درصد">
+                            <input
+                              type="number"
+                              className="input-field"
+                              value={bracket.rate}
+                              onChange={(e) =>
+                                setTemplate((prev) => ({
+                                  ...prev,
+                                  payroll: {
+                                    ...prev.payroll,
+                                    taxBrackets: prev.payroll.taxBrackets.map((row) =>
+                                      row.id === bracket.id ? { ...row, rate: e.target.value } : row,
+                                    ),
+                                  },
+                                }))
+                              }
+                            />
+                          </Field>
+                          <button
+                            onClick={() =>
                               setTemplate((prev) => {
-                                const next = prev.payroll.taxBrackets.map((row) =>
-                                  row.id === bracket.id ? { ...row, end: e.target.value } : row,
-                                );
+                                if (prev.payroll.taxBrackets.length <= 1) return prev;
                                 return {
                                   ...prev,
                                   payroll: {
                                     ...prev.payroll,
-                                    taxBrackets: normalizeTaxBrackets(prev.payroll.monthlyTaxExemption, next),
+                                    taxBrackets: normalizeTaxBrackets(
+                                      prev.payroll.monthlyTaxExemption,
+                                      prev.payroll.taxBrackets.filter((row) => row.id !== bracket.id),
+                                    ),
                                   },
                                 };
                               })
                             }
-                          />
-                        </Field>
-                        <Field label="درصد">
-                          <input
-                            type="number"
-                            className="input-field"
-                            value={bracket.rate}
-                            onChange={(e) =>
-                              setTemplate((prev) => ({
-                                ...prev,
-                                payroll: {
-                                  ...prev.payroll,
-                                  taxBrackets: prev.payroll.taxBrackets.map((row) =>
-                                    row.id === bracket.id ? { ...row, rate: e.target.value } : row,
-                                  ),
-                                },
-                              }))
-                            }
-                          />
-                        </Field>
-                        <button
-                          onClick={() =>
-                            setTemplate((prev) => {
-                              if (prev.payroll.taxBrackets.length <= 1) return prev;
-                              return {
-                                ...prev,
-                                payroll: {
-                                  ...prev.payroll,
-                                  taxBrackets: normalizeTaxBrackets(
-                                    prev.payroll.monthlyTaxExemption,
-                                    prev.payroll.taxBrackets.filter((row) => row.id !== bracket.id),
-                                  ),
-                                },
-                              };
-                            })
-                          }
-                          disabled={template.payroll.taxBrackets.length <= 1}
-                          className="h-11 px-3 rounded-xl border border-rose-500/30 text-rose-300 hover:bg-rose-500/10 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-40"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          حذف پله
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                            disabled={template.payroll.taxBrackets.length <= 1}
+                            className="h-11 px-3 rounded-xl border border-rose-500/30 text-rose-300 hover:bg-rose-500/10 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-40"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            حذف پله
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </SectionCard>
               </>
             )}
@@ -2071,6 +2094,8 @@ function PayrollFieldRow({
   field,
   allowInsuranceToggle = true,
   allowTaxToggle = true,
+  showInsuranceToggle = true,
+  showTaxToggle = true,
   allowBaseWageToggle = true,
   onChange,
 }: {
@@ -2079,6 +2104,8 @@ function PayrollFieldRow({
   field: PayrollField;
   allowInsuranceToggle?: boolean;
   allowTaxToggle?: boolean;
+  showInsuranceToggle?: boolean;
+  showTaxToggle?: boolean;
   allowBaseWageToggle?: boolean;
   onChange: (patch: Partial<PayrollField>) => void;
 }) {
@@ -2097,10 +2124,10 @@ function PayrollFieldRow({
         />
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-        {allowInsuranceToggle && (
+        {allowInsuranceToggle && showInsuranceToggle && (
           <ToggleChip checked={field.insurance} label="مشمول بیمه" onChange={(checked) => onChange({ insurance: checked })} />
         )}
-        {allowTaxToggle && (
+        {allowTaxToggle && showTaxToggle && (
           <ToggleChip checked={field.tax} label="مشمول مالیات" onChange={(checked) => onChange({ tax: checked })} />
         )}
         {allowBaseWageToggle && (
