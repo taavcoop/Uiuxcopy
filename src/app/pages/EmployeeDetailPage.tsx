@@ -1,13 +1,26 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ChevronRight, FileText } from 'lucide-react';
+import { CheckCircle2, ChevronRight, FileText, Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import MonthlyFixedForm from '../components/contract/MonthlyFixedForm';
 import type { MonthlyFixedAgreement } from '../contract/types';
 import { LEGAL_CONSTANTS_2026 } from '../contract/salaryCalculations';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 
 type PageKey = 'management' | 'extra' | 'bank' | 'draft';
 type AgreementType = 'monthly-fixed' | 'daily-wage' | 'hourly' | 'project-based' | 'consulting';
+type BankAccount = {
+  id: number;
+  accountNumber: string;
+  cardNumber: string;
+  sheba: string;
+  isPrimary: boolean;
+};
+type NewBankAccount = {
+  accountNumber: string;
+  cardNumber: string;
+  sheba: string;
+};
 
 const PAGES: { key: PageKey; title: string }[] = [
   { key: 'management', title: 'اطلاعات مدیریت کاربران' },
@@ -65,12 +78,38 @@ const createDefaultAgreement = (): MonthlyFixedAgreement => ({
   taxExemption: LEGAL_CONSTANTS_2026.monthlyTaxExemption,
 });
 
+const createInitialBankAccounts = (): BankAccount[] => [
+  {
+    id: 1,
+    accountNumber: '',
+    cardNumber: '',
+    sheba: '',
+    isPrimary: true,
+  },
+  {
+    id: 2,
+    accountNumber: '',
+    cardNumber: '',
+    sheba: '',
+    isPrimary: false,
+  },
+];
+
+const createEmptyBankAccount = (): NewBankAccount => ({
+  accountNumber: '',
+  cardNumber: '',
+  sheba: '',
+});
+
 export default function EmployeeDetailPage() {
   const navigate = useNavigate();
   const { id, page } = useParams();
 
   const [agreementType, setAgreementType] = useState<AgreementType>('monthly-fixed');
   const [agreement, setAgreement] = useState<MonthlyFixedAgreement>(createDefaultAgreement());
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(createInitialBankAccounts);
+  const [isAddBankDialogOpen, setIsAddBankDialogOpen] = useState(false);
+  const [newBankAccount, setNewBankAccount] = useState<NewBankAccount>(createEmptyBankAccount);
 
   const currentPage = useMemo<PageKey>(() => {
     if (page && PAGES.some((p) => p.key === page)) return page as PageKey;
@@ -95,6 +134,34 @@ export default function EmployeeDetailPage() {
       return;
     }
     goTo(PAGES[currentIndex + 1].key);
+  };
+
+  const handleOpenAddBankDialog = () => {
+    setNewBankAccount(createEmptyBankAccount());
+    setIsAddBankDialogOpen(true);
+  };
+
+  const handleAddBankAccount = () => {
+    setBankAccounts((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        accountNumber: newBankAccount.accountNumber,
+        cardNumber: newBankAccount.cardNumber,
+        sheba: newBankAccount.sheba,
+        isPrimary: false,
+      },
+    ]);
+    setIsAddBankDialogOpen(false);
+    setNewBankAccount(createEmptyBankAccount());
+  };
+
+  const handleChangeBankAccount = (accountId: number, field: 'accountNumber' | 'cardNumber' | 'sheba', value: string) => {
+    setBankAccounts((prev) => prev.map((item) => (item.id === accountId ? { ...item, [field]: value } : item)));
+  };
+
+  const handleSetPrimaryBank = (accountId: number) => {
+    setBankAccounts((prev) => prev.map((item) => ({ ...item, isPrimary: item.id === accountId })));
   };
 
   return (
@@ -162,19 +229,118 @@ export default function EmployeeDetailPage() {
         )}
 
         {currentPage === 'bank' && (
-          <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="شماره حساب">
-              <input className="input-field" placeholder="شماره حساب" />
-            </Field>
-            <Field label="شماره کارت بانکی">
-              <input className="input-field" placeholder="شماره کارت بانکی" />
-            </Field>
-            <Field label="شماره شبا" className="sm:col-span-2">
-              <input className="input-field" placeholder="IR..." />
-            </Field>
+          <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold">فهرست حساب‌های بانکی</h3>
+              <button
+                type="button"
+                onClick={handleOpenAddBankDialog}
+                className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                aria-label="افزودن حساب بانکی"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              {bankAccounts.map((account, index) => (
+                <div key={account.id} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm text-white font-semibold">حساب {index + 1}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleSetPrimaryBank(account.id)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full border transition-colors',
+                        account.isPrimary
+                          ? 'bg-emerald-600/20 text-emerald-300 border-emerald-400/40'
+                          : 'bg-slate-800 text-slate-300 border-white/10 hover:border-emerald-300/40'
+                      )}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      {account.isPrimary ? 'حساب اصلی' : 'انتخاب به عنوان اصلی'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="شماره حساب">
+                      <input
+                        className="input-field"
+                        placeholder="شماره حساب"
+                        value={account.accountNumber}
+                        onChange={(e) => handleChangeBankAccount(account.id, 'accountNumber', e.target.value)}
+                      />
+                    </Field>
+                    <Field label="شماره کارت بانکی">
+                      <input
+                        className="input-field"
+                        placeholder="شماره کارت بانکی"
+                        value={account.cardNumber}
+                        onChange={(e) => handleChangeBankAccount(account.id, 'cardNumber', e.target.value)}
+                      />
+                    </Field>
+                    <Field label="شماره شبا" className="sm:col-span-2">
+                      <input
+                        className="input-field"
+                        placeholder="IR..."
+                        value={account.sheba}
+                        onChange={(e) => handleChangeBankAccount(account.id, 'sheba', e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Dialog open={isAddBankDialogOpen} onOpenChange={setIsAddBankDialogOpen}>
+              <DialogContent dir="rtl" className="bg-slate-900 border-white/10 text-slate-100">
+                <DialogHeader className="text-right">
+                  <DialogTitle className="text-white">ثبت حساب بانکی جدید</DialogTitle>
+                  <DialogDescription className="text-slate-300">مشخصات حساب جدید را وارد کنید.</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="شماره حساب">
+                    <input
+                      className="input-field"
+                      placeholder="شماره حساب"
+                      value={newBankAccount.accountNumber}
+                      onChange={(e) => setNewBankAccount((prev) => ({ ...prev, accountNumber: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="شماره کارت بانکی">
+                    <input
+                      className="input-field"
+                      placeholder="شماره کارت بانکی"
+                      value={newBankAccount.cardNumber}
+                      onChange={(e) => setNewBankAccount((prev) => ({ ...prev, cardNumber: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="شماره شبا" className="sm:col-span-2">
+                    <input
+                      className="input-field"
+                      placeholder="IR..."
+                      value={newBankAccount.sheba}
+                      onChange={(e) => setNewBankAccount((prev) => ({ ...prev, sheba: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+                <DialogFooter>
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 border border-white/15 rounded-lg text-slate-200 hover:bg-slate-800"
+                    onClick={() => setIsAddBankDialogOpen(false)}
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500"
+                    onClick={handleAddBankAccount}
+                  >
+                    ثبت حساب
+                  </button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </section>
         )}
-
         {currentPage === 'draft' && (
           <div className="space-y-4">
             <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6">
