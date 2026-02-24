@@ -32,7 +32,7 @@ const Sidebar = ({ currentPath }: { currentPath: string }) => {
         <span>سازمان من</span>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-hidden">
         <div className="text-xs font-semibold text-slate-500 px-4 py-2">منوی اصلی</div>
         {[
           { icon: LayoutDashboard, label: 'داشبورد', active: currentPath === '/', path: '/' },
@@ -153,7 +153,7 @@ export default function Root() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden">
           <Outlet />
         </main>
       </div>

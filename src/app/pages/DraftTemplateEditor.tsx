@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ChevronRight, Info, Lock, Plus, Save, Trash2 } from 'lucide-react';
+import { BarChart3, ChevronRight, Info, Lock, Plus, Trash2, X } from 'lucide-react';
 import {
   getDraftTemplateById,
   getPayrollPackageEnabled,
@@ -396,6 +396,24 @@ const formatReferenceDate = (date?: string) => {
 const getReferenceDateRangeLabel = (ref: { startDate: string; endDate: string }) =>
   `${formatReferenceDate(ref.startDate)} تا ${formatReferenceDate(ref.endDate)}`;
 
+const buildPreparedDraftTemplate = (template: DraftTemplate, calculatedHourlyRate: number): DraftTemplate => {
+  const normalizedPayroll = normalizeBaseWageFlags({
+    ...template.payroll,
+    taxBrackets: normalizeTaxBrackets(template.payroll.monthlyTaxExemption, template.payroll.taxBrackets),
+  });
+
+  return {
+    ...template,
+    payroll: {
+      ...normalizedPayroll,
+      hourlyRateOverride:
+        normalizedPayroll.hourlyRateOverrideDraft.trim() ||
+        (calculatedHourlyRate > 0 ? String(Number(calculatedHourlyRate.toFixed(2))) : ''),
+    },
+    updatedAt: new Date().toISOString(),
+  };
+};
+
 export default function DraftTemplateEditor() {
   const navigate = useNavigate();
   const params = useParams();
@@ -404,6 +422,9 @@ export default function DraftTemplateEditor() {
   const existing = isEdit ? getDraftTemplateById(id as string) : null;
   const [template, setTemplate] = useState<DraftTemplate>(() => hydrateTemplate(existing ?? createEmptyDraftTemplate()));
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(existing?.updatedAt ?? null);
+  const [isMobileReportOpen, setIsMobileReportOpen] = useState(false);
+  const didMountAutoSaveRef = useRef(false);
   const hasPayrollPackage = getPayrollPackageEnabled();
 
   const baseError = useMemo(() => requiredBaseError(template), [template]);
@@ -524,7 +545,7 @@ export default function DraftTemplateEditor() {
     if (preset) {
       setNotice({
         type: 'success',
-        text: `مقادیر مرجع «${preset.title}» در فیلدهای مرتبط اعمال شد. برای ثبت نهایی، بخش‌ها را ذخیره کنید.`,
+        text: `مقادیر مرجع «${preset.title}» در فیلدهای مرتبط اعمال شد.`,
       });
     } else {
       setNotice({
@@ -610,7 +631,7 @@ export default function DraftTemplateEditor() {
   };
 
   const getSectionSaveError = (section: SectionId): string | null => {
-    if (section !== 'base' && !baseReady) return 'ابتدا اطلاعات پایه را کامل و ذخیره کنید.';
+    if (section !== 'base' && !baseReady) return 'ابتدا اطلاعات پایه را کامل کنید.';
     if (section === 'base' && baseError) return baseError;
     if (section.startsWith('payroll') && !hasPayrollPackage) {
       return 'برای ثبت آیتم‌های حقوق و دستمزد باید پکیج مربوطه فعال شود.';
@@ -701,16 +722,56 @@ export default function DraftTemplateEditor() {
     ? estimateMonthlyTax(grossPay30, template.payroll.monthlyTaxExemption, template.payroll.taxBrackets)
     : 0;
   const netPay30 = Math.max(0, grossPay30 - workerInsuranceAmount - estimatedTaxAmount);
-  const hasAppliedHourlyOverride =
-    Boolean(template.savedSections.payroll_setup) && Boolean(template.payroll.hourlyRateOverride.trim());
-  const appliedHourlyRate = toNumber(template.payroll.hourlyRateOverride);
+  const hasAppliedHourlyOverride = Boolean(template.payroll.hourlyRateOverrideDraft.trim());
+  const appliedHourlyRate = toNumber(
+    template.payroll.hourlyRateOverrideDraft.trim() || template.payroll.hourlyRateOverride,
+  );
   const calculatedHourlyRateDraftValue = calculatedHourlyRate > 0 ? String(Number(calculatedHourlyRate.toFixed(2))) : '';
   const effectiveHourlyRateDraft = template.payroll.hourlyRateOverrideDraft || calculatedHourlyRateDraftValue;
   const showSectionsAfterBase = isEdit || baseReady;
+  const canShowLiveReport = hasPayrollPackage && showSectionsAfterBase;
+
+  useEffect(() => {
+    if (!didMountAutoSaveRef.current) {
+      didMountAutoSaveRef.current = true;
+      return;
+    }
+    const prepared = buildPreparedDraftTemplate(template, calculatedHourlyRate);
+    upsertDraftTemplate(prepared);
+    setLastAutoSavedAt(prepared.updatedAt);
+  }, [template, calculatedHourlyRate]);
+
+  useEffect(() => {
+    if (!canShowLiveReport && isMobileReportOpen) {
+      setIsMobileReportOpen(false);
+    }
+  }, [canShowLiveReport, isMobileReportOpen]);
+
+  const handleFinalSubmit = () => {
+    const baseValidationError = getSectionSaveError('base');
+    if (baseValidationError) {
+      setNotice({ type: 'error', text: baseValidationError });
+      return;
+    }
+    if (hasPayrollPackage) {
+      const payrollSetupError = getSectionSaveError('payroll_setup');
+      if (payrollSetupError) {
+        setNotice({ type: 'error', text: payrollSetupError });
+        return;
+      }
+    }
+
+    const prepared = buildPreparedDraftTemplate(template, calculatedHourlyRate);
+    upsertDraftTemplate(prepared);
+    setTemplate(prepared);
+    setLastAutoSavedAt(prepared.updatedAt);
+    setNotice({ type: 'success', text: 'ثبت نهایی قالب پیش‌نویس انجام شد.' });
+    if (!isEdit) navigate(`/draft-templates/${prepared.id}`, { replace: true });
+  };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 lg:p-8 pb-28">
+      <div className="max-w-[88rem] mx-auto space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -723,7 +784,7 @@ export default function DraftTemplateEditor() {
               <h1 className="text-2xl sm:text-3xl font-black text-white">
                 {isEdit ? 'ویرایش قالب پیش‌نویس قرارداد' : 'ثبت قالب پیش‌نویس قرارداد'}
               </h1>
-              <p className="text-sm text-slate-400 mt-1">ذخیره هر بخش به‌صورت مستقل انجام می‌شود.</p>
+              <p className="text-sm text-slate-400 mt-1">تغییرات هر فیلد به‌صورت خودکار ذخیره می‌شود.</p>
             </div>
           </div>
         </div>
@@ -740,6 +801,26 @@ export default function DraftTemplateEditor() {
           </div>
         )}
 
+        <div
+          className={`grid grid-cols-1 gap-4 items-start ${canShowLiveReport ? 'xl:grid-cols-[minmax(0,1fr)_23rem]' : ''}`}
+        >
+          <div className="space-y-5">
+        <div className="sticky top-3 z-30">
+          <div className="bg-slate-900/85 backdrop-blur border border-white/10 rounded-2xl p-3 sm:p-4 shadow-lg shadow-black/20">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-xs text-slate-400">
+                ذخیره خودکار: فعال {lastAutoSavedAt ? `• آخرین ذخیره: ${getSavedLabel(lastAutoSavedAt)}` : ''}
+              </div>
+              <button
+                type="button"
+                onClick={handleFinalSubmit}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white"
+              >
+                ثبت نهایی
+              </button>
+            </div>
+          </div>
+        </div>
         <SectionCard
           title="اطلاعات پایه"
           subtitle="تعریف عنوان و توضیحات"
@@ -1276,12 +1357,9 @@ export default function DraftTemplateEditor() {
               )}
             </SectionCard>
             {template.payroll.inputMode === 'agreed' ? (
-              <PayrollReadonlyReport
-                template={template}
-                agreedAnalysis={agreedAnalysis}
-                perDay={perDay}
-                perWeek={perWeek}
-              />
+              <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-4 text-sm text-slate-300">
+                در حالت «تعیین حقوق توافقی»، گزارش حقوق و دستمزد به‌صورت زنده در ستون سمت چپ نمایش داده می‌شود.
+              </div>
             ) : (
               <>
                 <SectionCard
@@ -1817,6 +1895,77 @@ export default function DraftTemplateEditor() {
             برای ادامه، ابتدا «عنوان» و «توضیحات» بخش اطلاعات پایه را وارد کنید.
           </div>
         )}
+          </div>
+          {canShowLiveReport && <div className="hidden xl:block" aria-hidden />}
+        </div>
+        {canShowLiveReport && (
+          <div className="hidden xl:block fixed left-4 top-24 bottom-4 w-[23rem] z-30">
+            <PayrollLiveReportPanel
+              template={template}
+              agreedAnalysis={agreedAnalysis}
+              grossPay30={grossPay30}
+              workerInsuranceAmount={workerInsuranceAmount}
+              estimatedTaxAmount={estimatedTaxAmount}
+              netPay30={netPay30}
+              showInsuranceCoverageOptions={showInsuranceCoverageOptions}
+              showTaxCoverageOptions={showTaxCoverageOptions}
+            />
+          </div>
+        )}
+        {canShowLiveReport && (
+          <>
+            <button
+              type="button"
+              onClick={() => setIsMobileReportOpen((prev) => !prev)}
+              className="xl:hidden fixed left-4 bottom-20 z-40 inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-slate-900/90 backdrop-blur text-slate-100 shadow-lg"
+            >
+              <BarChart3 className="w-4 h-4" />
+              گزارش
+            </button>
+
+            <div
+              className={`xl:hidden fixed inset-0 z-50 transition-opacity ${isMobileReportOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            >
+              <button
+                type="button"
+                aria-label="بستن گزارش"
+                onClick={() => setIsMobileReportOpen(false)}
+                className="absolute inset-0 bg-slate-950/70 backdrop-blur-[1px]"
+              />
+              <div
+                className={`absolute inset-y-0 left-0 w-[min(24rem,88vw)] p-3 transition-transform duration-300 ${
+                  isMobileReportOpen ? 'translate-x-0' : '-translate-x-full'
+                }`}
+              >
+                <div className="h-full bg-slate-950 border border-white/10 rounded-2xl shadow-2xl shadow-black/40 overflow-hidden flex flex-col">
+                  <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/5">
+                    <div className="text-sm font-bold text-white">گزارش حقوق و دستمزد</div>
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileReportOpen(false)}
+                      className="p-2 rounded-lg hover:bg-white/5 text-slate-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto scrollbar-hidden p-3">
+                    <PayrollLiveReportPanel
+                      template={template}
+                      agreedAnalysis={agreedAnalysis}
+                      grossPay30={grossPay30}
+                      workerInsuranceAmount={workerInsuranceAmount}
+                      estimatedTaxAmount={estimatedTaxAmount}
+                      netPay30={netPay30}
+                      showInsuranceCoverageOptions={showInsuranceCoverageOptions}
+                      showTaxCoverageOptions={showTaxCoverageOptions}
+                      compact
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1825,16 +1974,13 @@ export default function DraftTemplateEditor() {
 function SectionCard({
   title,
   subtitle,
-  savedAt,
-  onSave,
-  disabledSave,
   sticky,
   children,
 }: {
   title: string;
   subtitle: string;
   savedAt?: string;
-  onSave: () => void;
+  onSave?: () => void;
   disabledSave?: boolean;
   sticky?: boolean;
   children: React.ReactNode;
@@ -1845,23 +1991,185 @@ function SectionCard({
         sticky ? 'sticky top-3 z-30 backdrop-blur-sm' : ''
       }`}
     >
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+      <div className="mb-4">
         <div>
           <h2 className="text-lg font-bold text-white">{title}</h2>
           <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
-          <p className="text-[11px] text-slate-500 mt-1">آخرین ذخیره: {getSavedLabel(savedAt)}</p>
         </div>
-        <button
-          onClick={onSave}
-          disabled={disabledSave}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <Save className="w-4 h-4" />
-          ذخیره این بخش
-        </button>
       </div>
       {children}
     </section>
+  );
+}
+
+function PayrollLiveReportPanel({
+  template,
+  agreedAnalysis,
+  grossPay30,
+  workerInsuranceAmount,
+  estimatedTaxAmount,
+  netPay30,
+  showInsuranceCoverageOptions,
+  showTaxCoverageOptions,
+  compact = false,
+}: {
+  template: DraftTemplate;
+  agreedAnalysis: AgreedAnalysis;
+  grossPay30: number;
+  workerInsuranceAmount: number;
+  estimatedTaxAmount: number;
+  netPay30: number;
+  showInsuranceCoverageOptions: boolean;
+  showTaxCoverageOptions: boolean;
+  compact?: boolean;
+}) {
+  const groups: Array<{ title: string; items: Array<{ key: PayrollFieldKey; label: string }> }> = [
+    { title: 'مولفه‌های اصلی', items: MAIN_COMPONENTS },
+    { title: 'مزایای شغلی', items: JOB_BENEFITS },
+    { title: 'عیدی و سنوات', items: LEGAL_FIELDS },
+  ];
+  const fixedAdjustments = template.payroll.fixedAdjustments;
+
+  return (
+    <section className={`bg-slate-900/40 border border-white/5 rounded-2xl ${compact ? 'p-3' : 'p-3.5'} h-full flex flex-col gap-3`}>
+      <div>
+        <h2 className="text-sm font-bold text-white">گزارش حقوق و دستمزد</h2>
+        <p className="text-[11px] text-slate-400 mt-1">نمایش زنده مقادیر با هر تغییر فرم</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <CompactReportCell label="ناخالص ۳۰ روز" value={formatMoney(grossPay30)} />
+        <CompactReportCell
+          label="بیمه سهم کارگر"
+          value={showInsuranceCoverageOptions ? formatMoney(workerInsuranceAmount) : 'غیرفعال'}
+        />
+        <CompactReportCell label="مالیات تخمینی" value={showTaxCoverageOptions ? formatMoney(estimatedTaxAmount) : 'غیرفعال'} />
+        <CompactReportCell label="خالص ۳۰ روز" value={formatMoney(netPay30)} />
+      </div>
+
+      {template.payroll.inputMode === 'agreed' && (
+        <div className="grid grid-cols-1 gap-2">
+          <CompactReportRow label="جمع قانونی دریافتی" value={agreedAnalysis.legalTotal.toLocaleString('fa-IR')} />
+          <CompactReportRow label="حقوق توافقی" value={agreedAnalysis.agreedTotal.toLocaleString('fa-IR')} />
+          <CompactReportRow label="مابه‌التفاوت توافقی" value={agreedAnalysis.diff.toLocaleString('fa-IR')} />
+        </div>
+      )}
+
+      <div className="space-y-2 min-h-0 flex-1 overflow-y-auto scrollbar-hidden pr-1">
+        {groups.map((group) => (
+          <div key={group.title} className="bg-slate-800/40 border border-white/5 rounded-xl p-2.5">
+            <h3 className="text-xs font-bold text-slate-100 mb-2">{group.title}</h3>
+            <div className="space-y-1.5">
+              {group.items.map((item) => (
+                <div key={item.key} className="rounded-lg border border-white/5 bg-slate-900/30 px-2 py-1.5">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-slate-300">{item.label}</span>
+                    <span className="text-slate-100 font-semibold">
+                      {agreedAnalysis.finalFieldValues[item.key].toLocaleString('fa-IR')}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <CoverageBadge
+                      label="بیمه"
+                      active={showInsuranceCoverageOptions && template.payroll[item.key].insurance}
+                      disabled={!showInsuranceCoverageOptions}
+                    />
+                    <CoverageBadge
+                      label="مالیات"
+                      active={showTaxCoverageOptions && template.payroll[item.key].tax}
+                      disabled={!showTaxCoverageOptions}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div className="bg-slate-800/40 border border-white/5 rounded-xl p-2.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-slate-400">سایر مزایا</span>
+            <span className="text-slate-100 font-semibold">
+              {agreedAnalysis.finalFieldValues.otherBenefits.toLocaleString('fa-IR')}
+            </span>
+          </div>
+        </div>
+
+        {fixedAdjustments.length > 0 && (
+          <div className="bg-slate-800/40 border border-white/5 rounded-xl p-2.5">
+            <h3 className="text-xs font-bold text-slate-100 mb-2">اضافات و کسورات ثابت</h3>
+            <div className="space-y-1.5">
+              {fixedAdjustments.map((item) => {
+                const kindLabel = item.kind === 'addition' ? 'اضافه' : 'کسور';
+                const calcLabel = item.calcType === 'fixed' ? 'مبلغ' : 'ضریب';
+                return (
+                  <div key={item.id} className="rounded-lg border border-white/5 bg-slate-900/30 px-2 py-1.5">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-slate-300 truncate">{item.title || `بدون عنوان (${kindLabel})`}</span>
+                      <span className="text-slate-100 font-semibold whitespace-nowrap">
+                        {calcLabel}: {toNumber(item.value).toLocaleString('fa-IR')}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span
+                        className={`px-1.5 py-0.5 rounded border text-[10px] ${
+                          item.kind === 'addition'
+                            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                        }`}
+                      >
+                        {kindLabel}
+                      </span>
+                      <CoverageBadge label="بیمه" active={showInsuranceCoverageOptions && item.insurance} disabled={!showInsuranceCoverageOptions} />
+                      <CoverageBadge label="مالیات" active={showTaxCoverageOptions && item.tax} disabled={!showTaxCoverageOptions} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CompactReportCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-slate-800/45 border border-white/5 rounded-lg p-2">
+      <div className="text-[10px] text-slate-500 mb-1 leading-4">{label}</div>
+      <div className="text-xs font-semibold text-slate-100 leading-5">{value}</div>
+    </div>
+  );
+}
+
+function CompactReportRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-slate-800/35 border border-white/5 rounded-lg px-2.5 py-2 flex items-center justify-between gap-2 text-xs">
+      <span className="text-slate-400">{label}</span>
+      <span className="text-slate-100 font-semibold">{value}</span>
+    </div>
+  );
+}
+
+function CoverageBadge({ label, active, disabled }: { label: string; active: boolean; disabled?: boolean }) {
+  if (disabled) {
+    return (
+      <span className="px-1.5 py-0.5 rounded border border-white/10 text-[10px] text-slate-500 bg-slate-800/40">
+        {label}: غیرفعال
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`px-1.5 py-0.5 rounded border text-[10px] ${
+        active
+          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+          : 'bg-slate-700/30 text-slate-300 border-white/10'
+      }`}
+    >
+      {label}: {active ? 'دارد' : 'ندارد'}
+    </span>
   );
 }
 
