@@ -78,7 +78,7 @@ const SECTION_TITLES: Record<SectionId, string> = {
   payroll_fixed_adjustments: 'اضافات و کسورات ثابت',
   payroll_time_coeffs: 'فوق‌العاده ضرایب زمانی',
   payroll_shift: 'فوق‌العاده نوبت کاری',
-  payroll_legal: 'حدود قانونی عیدی و حق سنوات',
+  payroll_legal: 'مبالغ عیدی و حق سنوات',
   payroll_deductions: 'کسورات قانونی و حدود بیمه / مالیات',
 };
 
@@ -150,14 +150,6 @@ const DRAFT_KIND_OPTIONS: Array<{ value: PayrollDraftKind; label: string; desc: 
 ];
 
 const ENABLED_DRAFT_KINDS = new Set<PayrollDraftKind>(DRAFT_KIND_OPTIONS.filter((item) => item.enabled).map((item) => item.value));
-
-const DRAFT_KIND_LABELS: Record<PayrollDraftKind, string> = {
-  monthly_fixed: 'ثابت ماهیانه',
-  daily_wage: 'روزمزد',
-  hourly: 'ساعتی',
-  project: 'پروژه ای',
-  consulting: 'مشاوره ای',
-};
 
 const BASE_FIELD_TOOLTIPS = {
   title: 'عنوان قالب برای شناسایی نسخه پیش‌نویس قرارداد در سیستم استفاده می‌شود.',
@@ -1570,7 +1562,7 @@ export default function DraftTemplateEditor() {
                 </SectionCard>
 
                 <SectionCard
-                  title="حدود قانونی عیدی و حق سنوات"
+                  title="مبالغ عیدی و حق سنوات"
                   subtitle="تنظیمات عیدی و سنوات"
                   savedAt={template.savedSections.payroll_legal}
                   onSave={() => saveSection('payroll_legal')}
@@ -1885,16 +1877,22 @@ function PayrollReadonlyReport({
   perWeek: string;
 }) {
   const selectedTarget = OVER_MIN_WAGE_TARGET_LABELS[template.payroll.overMinWageBenefitTarget] ?? 'ثبت نشده';
-  const draftKindLabel = DRAFT_KIND_LABELS[template.payroll.draftKind];
   const eydiModeLabel = template.payroll.eydiPayoutMode === 'monthly' ? 'پرداخت ماهانه' : 'پرداخت سالانه';
   const severanceModeLabel =
     template.payroll.severancePayoutMode === 'monthly' ? 'پرداخت ماهانه' : 'پرداخت پایان همکاری';
+  const insuranceEnabled = template.payroll.globalInsuranceEnabled ?? true;
+  const taxEnabled = template.payroll.globalTaxEnabled ?? true;
+  const visibleDeductionFields = DEDUCTION_FIELDS.filter(
+    (item) =>
+      (insuranceEnabled && INSURANCE_DEDUCTION_FIELD_KEYS.has(item.key)) ||
+      (taxEnabled && TAX_DEDUCTION_FIELD_KEYS.has(item.key)),
+  );
   const reportGroups: Array<{ title: string; items: Array<{ key: PayrollFieldKey; label: string }> }> = [
     { title: 'مولفه‌های اصلی حکمی', items: MAIN_COMPONENTS },
     { title: 'مزایای به تبع شغل', items: JOB_BENEFITS },
     { title: 'فوق العاده ضرایب زمانی', items: TIME_COEFFS },
     { title: 'فوق العاده نوبت کاری', items: SHIFT_BENEFITS },
-    { title: 'حدود قانونی عیدی و حق سنوات', items: LEGAL_FIELDS },
+    { title: 'مبالغ عیدی و حق سنوات', items: LEGAL_FIELDS },
   ];
 
   return (
@@ -1907,13 +1905,14 @@ function PayrollReadonlyReport({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <ReportItem label="نوع پیش‌نویس" value={draftKindLabel} />
         <ReportItem label="جمع قانونی دریافتی" value={agreedAnalysis.legalTotal.toLocaleString('fa-IR')} />
         <ReportItem label="حقوق توافقی" value={agreedAnalysis.agreedTotal.toLocaleString('fa-IR')} />
         <ReportItem label="مابه‌التفاوت توافقی" value={agreedAnalysis.diff.toLocaleString('fa-IR')} />
         <ReportItem label="ثبت مازاد حد اداره کار در" value={selectedTarget} />
         <ReportItem label="روش پرداخت عیدی" value={eydiModeLabel} />
         <ReportItem label="روش پرداخت سنوات" value={severanceModeLabel} />
+        <ReportItem label="پرداخت بیمه" value={insuranceEnabled ? 'فعال' : 'غیرفعال'} />
+        <ReportItem label="پرداخت مالیات" value={taxEnabled ? 'فعال' : 'غیرفعال'} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1943,21 +1942,55 @@ function PayrollReadonlyReport({
 
       <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4">
         <h3 className="text-sm font-bold text-slate-100 mb-3">کسورات قانونی و حدود بیمه / مالیات</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {DEDUCTION_FIELDS.map((item) => (
-            <ReportItem key={item.key} label={item.label} value={template.payroll[item.key] || '-'} />
-          ))}
-        </div>
+        {!insuranceEnabled && !taxEnabled ? (
+          <p className="text-xs text-slate-400">
+            چون «پرداخت بیمه» و «پرداخت مالیات» غیرفعال هستند، تنظیمات این بخش در گزارش نمایش داده نمی‌شود.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                  insuranceEnabled
+                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                    : 'bg-slate-700/30 text-slate-300 border-white/10'
+                }`}
+              >
+                پرداخت بیمه: {insuranceEnabled ? 'فعال' : 'غیرفعال'}
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] border ${
+                  taxEnabled
+                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                    : 'bg-slate-700/30 text-slate-300 border-white/10'
+                }`}
+              >
+                پرداخت مالیات: {taxEnabled ? 'فعال' : 'غیرفعال'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {visibleDeductionFields.map((item) => (
+                <ReportItem key={item.key} label={item.label} value={template.payroll[item.key] || '-'} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4 space-y-2">
-        <h3 className="text-sm font-bold text-slate-100">پله های مالیات حقوق</h3>
-        {template.payroll.taxBrackets.map((bracket, idx) => (
-          <div key={bracket.id} className="text-xs text-slate-300">
-            پله {idx + 1}: شروع {bracket.start || '-'} | پایان {bracket.end || '-'} | درصد {bracket.rate || '-'}
-          </div>
-        ))}
-      </div>
+      {taxEnabled ? (
+        <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4 space-y-2">
+          <h3 className="text-sm font-bold text-slate-100">پله های مالیات حقوق</h3>
+          {template.payroll.taxBrackets.map((bracket, idx) => (
+            <div key={bracket.id} className="text-xs text-slate-300">
+              پله {idx + 1}: شروع {bracket.start || '-'} | پایان {bracket.end || '-'} | درصد {bracket.rate || '-'}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4">
+          <p className="text-xs text-slate-400">پرداخت مالیات غیرفعال است؛ پله‌های مالیات در گزارش نمایش داده نمی‌شود.</p>
+        </div>
+      )}
 
       {agreedAnalysis.diff > 0 && template.payroll.overMinWageBenefitTarget === 'otherBenefits' && (
         <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4 space-y-2">
