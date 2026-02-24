@@ -27,6 +27,15 @@ const toNumber = (value?: string): number => {
 
 const formatMoney = (value: number | null) => (value == null ? '-' : `${Math.round(value).toLocaleString('fa-IR')} تومان`);
 
+const formatUpdatedDate = (value?: string) => {
+  if (!value) return '-';
+  try {
+    return new Date(value).toLocaleDateString('fa-IR');
+  } catch {
+    return value;
+  }
+};
+
 const DRAFT_KIND_LABELS: Record<PayrollDraftKind, string> = {
   monthly_fixed: 'ثابت ماهیانه',
   daily_wage: 'روزمزد',
@@ -279,6 +288,9 @@ export default function DraftTemplates() {
                         </div>
 
                         <p className="text-sm text-slate-300">{template.description || 'توضیحی ثبت نشده است.'}</p>
+                        <p className="text-xs text-slate-500">
+                          آخرین به‌روزرسانی: {formatUpdatedDate(template.updatedAt)}
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-2">
