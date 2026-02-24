@@ -162,6 +162,12 @@ const ATTENDANCE_TOOLTIPS = {
   monthlyOvertimeCap: 'حداکثر ساعت اضافه‌کاری مجاز ماهانه برای جلوگیری از ثبت مازاد غیرمجاز.',
 } as const;
 
+const ATTENDANCE_FIELD_LABELS: Record<keyof DraftTemplate['attendance'], string> = {
+  monthlyLeaveCap: 'سقف مرخصی ماهیانه',
+  maxLeaveCarryToNextYear: 'حداکثر انتقال مرخصی به سال بعد',
+  monthlyOvertimeCap: 'سقف ساعت اضافه کاری ماهانه',
+};
+
 const PAYROLL_FIELD_TOOLTIPS: Partial<Record<PayrollFieldKey, string>> = {
   baseSalary: 'حقوق پایه ماهانه مطابق حکم/قرارداد که مبنای اصلی محاسبات مزدی است.',
   seniorityBase: 'پایه سنوات ماهانه مطابق مقررات کار برای کارکنان مشمول سنوات.',
@@ -414,6 +420,48 @@ const buildPreparedDraftTemplate = (template: DraftTemplate, calculatedHourlyRat
   };
 };
 
+const PAYROLL_SCALAR_LABELS: Partial<Record<PayrollScalarKey, string>> = {
+  monthlyRequiredHours: 'ساعت موظفی در ماه',
+  workerInsuranceRate: 'نرخ بیمه سهم کارگر (%)',
+  employerInsuranceRate: 'نرخ بیمه سهم کارفرما (%)',
+  unemploymentInsuranceRate: 'نرخ بیمه بیکاری (%)',
+  insuranceCapMultiplier: 'ضریب سقف مشمول بیمه',
+  monthlyTaxExemption: 'معافیت مالیاتی ماهانه',
+};
+
+const PAYROLL_FIELD_LABELS: Record<PayrollFieldKey, string> = {
+  baseSalary: 'حقوق پایه ماهانه',
+  seniorityBase: 'پایه سنوات ماهانه',
+  housingAllowance: 'حق مسکن',
+  foodAllowance: 'بن خواربار/کارگری',
+  childAllowancePerChild: 'حق اولاد (هر فرزند)',
+  marriageAllowance: 'حق تاهل',
+  attractionAllowance: 'حق جذب',
+  managementAllowance: 'حق مدیریت',
+  commuteAllowance: 'ایاب و ذهاب',
+  hardshipAllowance: 'سختی کار',
+  otherBenefits: 'سایر مزایا',
+  overtimeFactor: 'ضریب اضافه کاری',
+  nightWorkFactor1: 'ضریب شب کاری',
+  nightWorkFactor2: 'ضریب شب کاری ۲',
+  holidayWorkFactor: 'ضریب تعطیل کاری',
+  fridayWorkFactorWithOvertime: 'ضریب جمعه کاری',
+  fridayWorkFactorWithoutOvertime: 'ضریب جمعه کاری بدون اضافه کاری',
+  morningEveningShiftPercent: 'درصد شیفت صبح و عصر',
+  morningEveningNightShiftPercent: 'درصد شیفت صبح و عصر و شب',
+  morningNightShiftPercent: 'درصد شیفت صبح و شب',
+  eveningNightShiftPercent: 'درصد شیفت عصر و شب',
+  eydi: 'عیدی',
+  severancePay: 'حق سنوات',
+};
+
+type ReferenceDeviation = {
+  label: string;
+  current: number;
+  reference: number;
+  kind: 'below' | 'above';
+};
+
 export default function DraftTemplateEditor() {
   const navigate = useNavigate();
   const params = useParams();
@@ -430,6 +478,10 @@ export default function DraftTemplateEditor() {
   const baseError = useMemo(() => requiredBaseError(template), [template]);
   const baseReady = !baseError;
   const agreedAnalysis = useMemo(() => calculateAgreedAnalysis(template), [template]);
+  const activeLaborOfficeReferencePreset = useMemo(
+    () => (template.laborOfficeReference ? getLaborOfficeReferencePresetById(template.laborOfficeReference.id) : null),
+    [template.laborOfficeReference],
+  );
   const shiftCoverage = useMemo(
     () => ({
       insurance: SHIFT_BENEFITS.every((item) => template.payroll[item.key].insurance),
@@ -726,6 +778,42 @@ export default function DraftTemplateEditor() {
   const appliedHourlyRate = toNumber(
     template.payroll.hourlyRateOverrideDraft.trim() || template.payroll.hourlyRateOverride,
   );
+  const laborReferenceDeviations = useMemo(() => {
+    if (!activeLaborOfficeReferencePreset) return { below: [] as ReferenceDeviation[], above: [] as ReferenceDeviation[] };
+
+    const below: ReferenceDeviation[] = [];
+    const above: ReferenceDeviation[] = [];
+    const epsilon = 1e-9;
+
+    const pushCompare = (label: string, currentRaw: string | undefined, referenceRaw: string | undefined) => {
+      if (referenceRaw == null || referenceRaw === '') return;
+      const reference = toNumber(referenceRaw);
+      const current = toNumber(currentRaw ?? '');
+      if (!Number.isFinite(reference) || !Number.isFinite(current)) return;
+      if (current < reference - epsilon) {
+        below.push({ label, current, reference, kind: 'below' });
+      } else if (current > reference + epsilon) {
+        above.push({ label, current, reference, kind: 'above' });
+      }
+    };
+
+    (Object.keys(activeLaborOfficeReferencePreset.attendance) as Array<keyof DraftTemplate['attendance']>).forEach((key) => {
+      pushCompare(ATTENDANCE_FIELD_LABELS[key], template.attendance[key], activeLaborOfficeReferencePreset.attendance[key]);
+    });
+
+    Object.entries(activeLaborOfficeReferencePreset.payrollScalarValues).forEach(([rawKey, referenceRaw]) => {
+      const key = rawKey as PayrollScalarKey;
+      if (!(key in template.payroll)) return;
+      pushCompare(PAYROLL_SCALAR_LABELS[key] ?? rawKey, template.payroll[key], referenceRaw);
+    });
+
+    Object.entries(activeLaborOfficeReferencePreset.payrollFieldValues).forEach(([rawKey, referenceRaw]) => {
+      const key = rawKey as PayrollFieldKey;
+      pushCompare(PAYROLL_FIELD_LABELS[key] ?? rawKey, template.payroll[key]?.value, referenceRaw);
+    });
+
+    return { below, above };
+  }, [activeLaborOfficeReferencePreset, template.attendance, template.payroll]);
   const calculatedHourlyRateDraftValue = calculatedHourlyRate > 0 ? String(Number(calculatedHourlyRate.toFixed(2))) : '';
   const effectiveHourlyRateDraft = template.payroll.hourlyRateOverrideDraft || calculatedHourlyRateDraftValue;
   const showSectionsAfterBase = isEdit || baseReady;
@@ -883,6 +971,48 @@ export default function DraftTemplateEditor() {
                   <span>برای این قالب از مقادیر مرجع اداره کار استفاده نشده است.</span>
                 )}
               </div>
+              {activeLaborOfficeReferencePreset && (
+                <div className="space-y-2">
+                  {laborReferenceDeviations.below.length > 0 && (
+                    <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">
+                      <div className="text-xs font-semibold text-rose-200 mb-2">
+                        هشدار: برخی مقادیر از حداقل مرجع اداره کار کمتر هستند.
+                      </div>
+                      <div className="space-y-1">
+                        {laborReferenceDeviations.below.slice(0, 6).map((item) => (
+                          <div key={`below-${item.label}`} className="text-[11px] text-rose-100/90">
+                            {item.label}: فعلی {item.current.toLocaleString('fa-IR')} | مرجع {item.reference.toLocaleString('fa-IR')}
+                          </div>
+                        ))}
+                        {laborReferenceDeviations.below.length > 6 && (
+                          <div className="text-[11px] text-rose-200/80">
+                            و {laborReferenceDeviations.below.length - 6} مورد دیگر...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {laborReferenceDeviations.above.length > 0 && (
+                    <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3">
+                      <div className="text-xs font-semibold text-sky-200 mb-2">
+                        اطلاع: برخی مقادیر از حد نرمال مرجع بالاتر هستند.
+                      </div>
+                      <div className="space-y-1">
+                        {laborReferenceDeviations.above.slice(0, 6).map((item) => (
+                          <div key={`above-${item.label}`} className="text-[11px] text-sky-100/90">
+                            {item.label}: فعلی {item.current.toLocaleString('fa-IR')} | مرجع {item.reference.toLocaleString('fa-IR')}
+                          </div>
+                        ))}
+                        {laborReferenceDeviations.above.length > 6 && (
+                          <div className="text-[11px] text-sky-200/80">
+                            و {laborReferenceDeviations.above.length - 6} مورد دیگر...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </SectionCard>
@@ -2060,28 +2190,32 @@ function PayrollLiveReportPanel({
           <div key={group.title} className="bg-slate-800/40 border border-white/5 rounded-xl p-2.5">
             <h3 className="text-xs font-bold text-slate-100 mb-2">{group.title}</h3>
             <div className="space-y-1.5">
-              {group.items.map((item) => (
-                <div key={item.key} className="rounded-lg border border-white/5 bg-slate-900/30 px-2 py-1.5">
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <span className="text-slate-300">{item.label}</span>
-                    <span className="text-slate-100 font-semibold">
-                      {agreedAnalysis.finalFieldValues[item.key].toLocaleString('fa-IR')}
-                    </span>
+              {group.items.map((item) => {
+                const supportsBaseWage = !DERIVED_FROM_BASE_WAGE_FIELD_KEYS.includes(item.key);
+                return (
+                  <div key={item.key} className="rounded-lg border border-white/5 bg-slate-900/30 px-2 py-1.5">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-slate-300">{item.label}</span>
+                      <span className="text-slate-100 font-semibold">
+                        {agreedAnalysis.finalFieldValues[item.key].toLocaleString('fa-IR')}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <CoverageBadge
+                        label="بیمه"
+                        active={showInsuranceCoverageOptions && template.payroll[item.key].insurance}
+                        disabled={!showInsuranceCoverageOptions}
+                      />
+                      <CoverageBadge
+                        label="مالیات"
+                        active={showTaxCoverageOptions && template.payroll[item.key].tax}
+                        disabled={!showTaxCoverageOptions}
+                      />
+                      {supportsBaseWage && <CoverageBadge label="مزد مبنا" active={template.payroll[item.key].baseWage} />}
+                    </div>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <CoverageBadge
-                      label="بیمه"
-                      active={showInsuranceCoverageOptions && template.payroll[item.key].insurance}
-                      disabled={!showInsuranceCoverageOptions}
-                    />
-                    <CoverageBadge
-                      label="مالیات"
-                      active={showTaxCoverageOptions && template.payroll[item.key].tax}
-                      disabled={!showTaxCoverageOptions}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
@@ -2092,6 +2226,19 @@ function PayrollLiveReportPanel({
             <span className="text-slate-100 font-semibold">
               {agreedAnalysis.finalFieldValues.otherBenefits.toLocaleString('fa-IR')}
             </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            <CoverageBadge
+              label="بیمه"
+              active={showInsuranceCoverageOptions && template.payroll.otherBenefits.insurance}
+              disabled={!showInsuranceCoverageOptions}
+            />
+            <CoverageBadge
+              label="مالیات"
+              active={showTaxCoverageOptions && template.payroll.otherBenefits.tax}
+              disabled={!showTaxCoverageOptions}
+            />
+            <CoverageBadge label="مزد مبنا" active={template.payroll.otherBenefits.baseWage} />
           </div>
         </div>
 
@@ -2122,6 +2269,11 @@ function PayrollLiveReportPanel({
                       </span>
                       <CoverageBadge label="بیمه" active={showInsuranceCoverageOptions && item.insurance} disabled={!showInsuranceCoverageOptions} />
                       <CoverageBadge label="مالیات" active={showTaxCoverageOptions && item.tax} disabled={!showTaxCoverageOptions} />
+                      <CoverageBadge
+                        label="مزد مبنا"
+                        active={item.calcType === 'fixed' && item.baseWage}
+                        disabled={item.calcType !== 'fixed'}
+                      />
                     </div>
                   </div>
                 );
