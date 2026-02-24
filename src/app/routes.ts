@@ -5,6 +5,9 @@ import Locations from "./pages/Locations";
 import AddLocation from "./pages/AddLocation";
 import Policies from "./pages/Policies";
 import AddPolicy from "./pages/AddPolicy";
+import DraftTemplates from "./pages/DraftTemplates";
+import DraftTemplateEditor from "./pages/DraftTemplateEditor";
+import PayrollPackagePurchase from "./pages/PayrollPackagePurchase";
 import WorkGroups from "./pages/WorkGroups";
 import AddWorkGroup from "./pages/AddWorkGroup";
 import PayrollContract from "./pages/PayrollContract";
@@ -25,6 +28,10 @@ export const router = createBrowserRouter([
       { path: "policies", Component: Policies },
       { path: "policies/add", Component: AddPolicy },
       { path: "policies/:id", Component: AddPolicy },
+      { path: "draft-templates", Component: DraftTemplates },
+      { path: "draft-templates/add", Component: DraftTemplateEditor },
+      { path: "draft-templates/:id", Component: DraftTemplateEditor },
+      { path: "draft-templates/payroll-package", Component: PayrollPackagePurchase },
       { path: "work-groups", Component: WorkGroups },
       { path: "work-groups/add", Component: AddWorkGroup },
       { path: "work-groups/:id", Component: AddWorkGroup },

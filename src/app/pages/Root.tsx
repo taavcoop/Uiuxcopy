@@ -1,9 +1,8 @@
-﻿import { Outlet, useNavigate } from 'react-router';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import {
   Menu,
   Bell,
   LayoutDashboard,
-  CheckCircle2,
   Users,
   Calendar,
   Settings,
@@ -24,7 +23,6 @@ function cn(...inputs: ClassValue[]) {
 
 const Sidebar = ({ currentPath }: { currentPath: string }) => {
   const navigate = useNavigate();
-
   return (
     <aside className="hidden lg:flex flex-col w-64 bg-slate-900 border-l border-white/5 h-screen sticky top-0">
       <div className="p-6 flex items-center gap-3 text-slate-100 font-bold text-lg border-b border-white/5">
@@ -34,7 +32,7 @@ const Sidebar = ({ currentPath }: { currentPath: string }) => {
         <span>سازمان من</span>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-hidden">
         <div className="text-xs font-semibold text-slate-500 px-4 py-2">منوی اصلی</div>
         {[
           { icon: LayoutDashboard, label: 'داشبورد', active: currentPath === '/', path: '/' },
@@ -53,6 +51,12 @@ const Sidebar = ({ currentPath }: { currentPath: string }) => {
             label: 'کارمندان',
             active: currentPath === '/employees' || currentPath.startsWith('/employees/'),
             path: '/employees',
+          },
+          {
+            icon: FileText,
+            label: 'قالب‌های پیش‌نویس',
+            active: currentPath === '/draft-templates' || currentPath.startsWith('/draft-templates/'),
+            path: '/draft-templates',
           },
           { icon: Calendar, label: 'تقویم', active: false, path: '/' },
         ].map((item, idx) => (
@@ -97,7 +101,8 @@ const Sidebar = ({ currentPath }: { currentPath: string }) => {
 };
 
 export default function Root() {
-  const currentPath = window.location.pathname;
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-['Vazirmatn'] selection:bg-indigo-500/30 flex" dir="rtl">
@@ -148,7 +153,7 @@ export default function Root() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden">
           <Outlet />
         </main>
       </div>

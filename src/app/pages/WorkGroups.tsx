@@ -1,15 +1,7 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Plus } from 'lucide-react';
+import { FileCode2, MapPin, Pencil, Plus, Trash2, UserCheck, Users } from 'lucide-react';
 import { motion } from 'motion/react';
-import { 
-  User02Icon, 
-  Edit02Icon, 
-  Delete02Icon,
-  MapPinIcon,
-  UserCheck01Icon,
-  DocumentCodeIcon
-} from 'hugeicons-react';
 import { SimpleTooltip } from '../components/ui/tooltip';
 
 interface WorkGroup {
@@ -84,7 +76,7 @@ export default function WorkGroups() {
         {workGroups.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="bg-slate-800/30 rounded-2xl p-8 text-center max-w-md">
-              <User02Icon className="w-12 h-12 text-slate-400 mx-auto mb-4 opacity-50" />
+              <Users className="w-12 h-12 text-slate-400 mx-auto mb-4 opacity-50" />
               <h2 className="text-xl font-bold text-white mb-2">هنوز گروه کاری ایجاد نشده است</h2>
               <p className="text-sm text-slate-400 mb-6">
                 برای شروع، گروه کاری خود را با افزودن اعضا و تعیین سیاست کاری اضافه کنید.
@@ -122,7 +114,7 @@ export default function WorkGroups() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       {/* Category Icon */}
                       <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600/30 to-purple-600/30 flex items-center justify-center border border-indigo-500/20">
-                        <User02Icon className="w-5 h-5 text-indigo-400" />
+                        <Users className="w-5 h-5 text-indigo-400" />
                       </div>
 
                       {/* Title + Info */}
@@ -141,7 +133,7 @@ export default function WorkGroups() {
                       {/* Location */}
                       <SimpleTooltip content="محل">
                         <div className="flex items-center gap-1.5">
-                          <MapPinIcon className="w-4 h-4 text-indigo-400" />
+                          <MapPin className="w-4 h-4 text-indigo-400" />
                           <span className="text-xs font-semibold text-slate-300">{group.location}</span>
                         </div>
                       </SimpleTooltip>
@@ -149,7 +141,7 @@ export default function WorkGroups() {
                       {/* Members */}
                       <SimpleTooltip content="تعداد اعضا">
                         <div className="flex items-center gap-1.5">
-                          <User02Icon className="w-4 h-4 text-purple-400" />
+                          <Users className="w-4 h-4 text-purple-400" />
                           <span className="text-xs font-bold text-purple-300">{group.membersCount}</span>
                         </div>
                       </SimpleTooltip>
@@ -157,7 +149,7 @@ export default function WorkGroups() {
                       {/* Manager */}
                       <SimpleTooltip content="مدیر گروه">
                         <div className="flex items-center gap-1.5">
-                          <UserCheck01Icon className="w-4 h-4 text-green-400" />
+                          <UserCheck className="w-4 h-4 text-green-400" />
                           <span className="text-xs font-semibold text-slate-300 truncate max-w-[80px]">{group.manager}</span>
                         </div>
                       </SimpleTooltip>
@@ -165,7 +157,7 @@ export default function WorkGroups() {
                       {/* Policy */}
                       <SimpleTooltip content="سیاست کاری">
                         <div className="flex items-center gap-1.5">
-                          <DocumentCodeIcon className="w-4 h-4 text-pink-400" />
+                          <FileCode2 className="w-4 h-4 text-pink-400" />
                           <span className="text-xs font-semibold text-slate-300 truncate max-w-[100px]">{group.policy}</span>
                         </div>
                       </SimpleTooltip>
@@ -184,7 +176,7 @@ export default function WorkGroups() {
                               onClick={() => navigate(`/work-groups/${group.id}`)}
                               className="p-1.5 text-slate-300 hover:text-indigo-400 hover:bg-indigo-500/10 rounded transition-all"
                             >
-                              <Edit02Icon className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" />
                             </button>
                           </SimpleTooltip>
                           <SimpleTooltip content="حذف">
@@ -192,7 +184,7 @@ export default function WorkGroups() {
                               onClick={() => handleDelete(group.id)}
                               className="p-1.5 text-slate-300 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-all"
                             >
-                              <Delete02Icon className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </SimpleTooltip>
                         </motion.div>
