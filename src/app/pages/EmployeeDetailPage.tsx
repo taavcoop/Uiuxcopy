@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { CheckCircle2, ChevronRight, FileText, Plus } from 'lucide-react';
+import { CheckCircle2, ChevronRight, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import MonthlyFixedForm from '../components/contract/MonthlyFixedForm';
 import type { MonthlyFixedAgreement } from '../contract/types';
@@ -110,6 +110,7 @@ export default function EmployeeDetailPage() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(createInitialBankAccounts);
   const [isAddBankDialogOpen, setIsAddBankDialogOpen] = useState(false);
   const [newBankAccount, setNewBankAccount] = useState<NewBankAccount>(createEmptyBankAccount);
+  const [editingBankAccountId, setEditingBankAccountId] = useState<number | null>(null);
 
   const currentPage = useMemo<PageKey>(() => {
     if (page && PAGES.some((p) => p.key === page)) return page as PageKey;
@@ -137,27 +138,65 @@ export default function EmployeeDetailPage() {
   };
 
   const handleOpenAddBankDialog = () => {
+    setEditingBankAccountId(null);
     setNewBankAccount(createEmptyBankAccount());
     setIsAddBankDialogOpen(true);
   };
 
-  const handleAddBankAccount = () => {
-    setBankAccounts((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        accountNumber: newBankAccount.accountNumber,
-        cardNumber: newBankAccount.cardNumber,
-        sheba: newBankAccount.sheba,
-        isPrimary: false,
-      },
-    ]);
+  const handleOpenEditBankDialog = (accountId: number) => {
+    const account = bankAccounts.find((item) => item.id === accountId);
+    if (!account) return;
+    setEditingBankAccountId(accountId);
+    setNewBankAccount({
+      accountNumber: account.accountNumber,
+      cardNumber: account.cardNumber,
+      sheba: account.sheba,
+    });
+    setIsAddBankDialogOpen(true);
+  };
+
+  const handleCloseBankDialog = () => {
     setIsAddBankDialogOpen(false);
+    setEditingBankAccountId(null);
     setNewBankAccount(createEmptyBankAccount());
   };
 
-  const handleChangeBankAccount = (accountId: number, field: 'accountNumber' | 'cardNumber' | 'sheba', value: string) => {
-    setBankAccounts((prev) => prev.map((item) => (item.id === accountId ? { ...item, [field]: value } : item)));
+  const handleSaveBankAccount = () => {
+    if (editingBankAccountId === null) {
+      setBankAccounts((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          accountNumber: newBankAccount.accountNumber,
+          cardNumber: newBankAccount.cardNumber,
+          sheba: newBankAccount.sheba,
+          isPrimary: prev.length === 0,
+        },
+      ]);
+    } else {
+      setBankAccounts((prev) =>
+        prev.map((item) =>
+          item.id === editingBankAccountId
+            ? {
+                ...item,
+                accountNumber: newBankAccount.accountNumber,
+                cardNumber: newBankAccount.cardNumber,
+                sheba: newBankAccount.sheba,
+              }
+            : item
+        )
+      );
+    }
+    handleCloseBankDialog();
+  };
+
+  const handleDeleteBankAccount = (accountId: number) => {
+    setBankAccounts((prev) => {
+      const filtered = prev.filter((item) => item.id !== accountId);
+      if (filtered.length === 0) return filtered;
+      if (filtered.some((item) => item.isPrimary)) return filtered;
+      return filtered.map((item, index) => (index === 0 ? { ...item, isPrimary: true } : item));
+    });
   };
 
   const handleSetPrimaryBank = (accountId: number) => {
@@ -231,14 +270,15 @@ export default function EmployeeDetailPage() {
         {currentPage === 'bank' && (
           <section className="bg-slate-900/65 border border-white/10 rounded-3xl p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-white font-bold">فهرست حساب‌های بانکی</h3>
+              <h3 className="text-white font-bold">فهرست حساب های بانکی</h3>
               <button
                 type="button"
                 onClick={handleOpenAddBankDialog}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                className="inline-flex items-center gap-2 px-3 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
                 aria-label="افزودن حساب بانکی"
               >
                 <Plus className="w-5 h-5" />
+                <span className="text-sm font-medium">افزودن جدید</span>
               </button>
             </div>
             <div className="space-y-4">
@@ -246,54 +286,60 @@ export default function EmployeeDetailPage() {
                 <div key={account.id} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 space-y-4">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm text-white font-semibold">حساب {index + 1}</p>
-                    <button
-                      type="button"
-                      onClick={() => handleSetPrimaryBank(account.id)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full border transition-colors',
-                        account.isPrimary
-                          ? 'bg-emerald-600/20 text-emerald-300 border-emerald-400/40'
-                          : 'bg-slate-800 text-slate-300 border-white/10 hover:border-emerald-300/40'
-                      )}
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      {account.isPrimary ? 'حساب اصلی' : 'انتخاب به عنوان اصلی'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditBankDialog(account.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-white/15 text-slate-200 hover:bg-slate-800 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        ویرایش
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBankAccount(account.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-rose-400/30 text-rose-300 hover:bg-rose-500/10 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        حذف
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetPrimaryBank(account.id)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full border transition-colors',
+                          account.isPrimary
+                            ? 'bg-emerald-600/20 text-emerald-300 border-emerald-400/40'
+                            : 'bg-slate-800 text-slate-300 border-white/10 hover:border-emerald-300/40'
+                        )}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        {account.isPrimary ? 'حساب اصلی' : 'انتخاب به عنوان اصلی'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="شماره حساب">
-                      <input
-                        className="input-field"
-                        placeholder="شماره حساب"
-                        value={account.accountNumber}
-                        onChange={(e) => handleChangeBankAccount(account.id, 'accountNumber', e.target.value)}
-                      />
-                    </Field>
-                    <Field label="شماره کارت بانکی">
-                      <input
-                        className="input-field"
-                        placeholder="شماره کارت بانکی"
-                        value={account.cardNumber}
-                        onChange={(e) => handleChangeBankAccount(account.id, 'cardNumber', e.target.value)}
-                      />
-                    </Field>
-                    <Field label="شماره شبا" className="sm:col-span-2">
-                      <input
-                        className="input-field"
-                        placeholder="IR..."
-                        value={account.sheba}
-                        onChange={(e) => handleChangeBankAccount(account.id, 'sheba', e.target.value)}
-                      />
-                    </Field>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <p className="text-slate-300">
+                      شماره حساب:
+                      <span className="text-white mr-2">{account.accountNumber || 'ثبت نشده'}</span>
+                    </p>
+                    <p className="text-slate-300">
+                      شماره کارت:
+                      <span className="text-white mr-2">{account.cardNumber || 'ثبت نشده'}</span>
+                    </p>
+                    <p className="text-slate-300 sm:col-span-2">
+                      شماره شبا:
+                      <span className="text-white mr-2">{account.sheba || 'ثبت نشده'}</span>
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
-            <Dialog open={isAddBankDialogOpen} onOpenChange={setIsAddBankDialogOpen}>
+            <Dialog open={isAddBankDialogOpen} onOpenChange={(open) => (open ? setIsAddBankDialogOpen(true) : handleCloseBankDialog())}>
               <DialogContent dir="rtl" className="bg-slate-900 border-white/10 text-slate-100">
                 <DialogHeader className="text-right">
-                  <DialogTitle className="text-white">ثبت حساب بانکی جدید</DialogTitle>
-                  <DialogDescription className="text-slate-300">مشخصات حساب جدید را وارد کنید.</DialogDescription>
+                  <DialogTitle className="text-white">{editingBankAccountId === null ? 'ثبت حساب بانکی جدید' : 'ویرایش حساب بانکی'}</DialogTitle>
+                  <DialogDescription className="text-slate-300">مشخصات حساب را وارد کنید.</DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="شماره حساب">
@@ -325,16 +371,16 @@ export default function EmployeeDetailPage() {
                   <button
                     type="button"
                     className="px-3 py-1.5 border border-white/15 rounded-lg text-slate-200 hover:bg-slate-800"
-                    onClick={() => setIsAddBankDialogOpen(false)}
+                    onClick={handleCloseBankDialog}
                   >
                     انصراف
                   </button>
                   <button
                     type="button"
                     className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500"
-                    onClick={handleAddBankAccount}
+                    onClick={handleSaveBankAccount}
                   >
-                    ثبت حساب
+                    {editingBankAccountId === null ? 'ثبت حساب' : 'ذخیره تغییرات'}
                   </button>
                 </DialogFooter>
               </DialogContent>
