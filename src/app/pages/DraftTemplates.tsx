@@ -18,7 +18,7 @@ import {
   getPayrollPackageEnabled,
   saveDraftTemplates,
 } from '../lib/draft-template-store';
-import type { DraftTemplate, TaxBracket } from '../lib/draft-template-types';
+import type { DraftTemplate, PayrollDraftKind, TaxBracket } from '../lib/draft-template-types';
 
 const toNumber = (value?: string): number => {
   const n = Number(value ?? '');
@@ -26,6 +26,28 @@ const toNumber = (value?: string): number => {
 };
 
 const formatMoney = (value: number | null) => (value == null ? '-' : `${Math.round(value).toLocaleString('fa-IR')} تومان`);
+
+const DRAFT_KIND_LABELS: Record<PayrollDraftKind, string> = {
+  monthly_fixed: 'ثابت ماهیانه',
+  daily_wage: 'روزمزد',
+  hourly: 'ساعتی',
+  project: 'پروژه ای',
+  consulting: 'مشاوره ای',
+};
+
+const getTemplateContractCount = (template: DraftTemplate): number => {
+  const raw = template as DraftTemplate & {
+    contractCount?: unknown;
+    contractsCount?: unknown;
+    usedContractsCount?: unknown;
+    usageCount?: unknown;
+  };
+  const candidates = [raw.contractCount, raw.contractsCount, raw.usedContractsCount, raw.usageCount];
+  for (const value of candidates) {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return Math.floor(value);
+  }
+  return 0;
+};
 
 const estimateMonthlyTax = (gross: number, exemption: string, brackets: TaxBracket[]): number => {
   const ex = Math.max(0, toNumber(exemption));
@@ -198,6 +220,8 @@ export default function DraftTemplates() {
                   const insuranceEnabled = template.payroll.globalInsuranceEnabled ?? true;
                   const taxEnabled = template.payroll.globalTaxEnabled ?? true;
                   const inputModeLabel = template.payroll.inputMode === 'agreed' ? 'حقوق توافقی' : 'ورود دستی';
+                  const draftKindLabel = DRAFT_KIND_LABELS[template.payroll.draftKind] ?? '-';
+                  const contractCount = getTemplateContractCount(template);
                   const agreedSummary = getAgreedSummary(template);
                   return (
                 <div className="flex items-start gap-4">
@@ -208,7 +232,7 @@ export default function DraftTemplates() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-base font-bold text-white">{template.title || 'بدون عنوان'}</h3>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[11px] border ${
@@ -245,6 +269,12 @@ export default function DraftTemplates() {
                             }`}
                           >
                             مالیات: {taxEnabled ? 'دارد' : 'ندارد'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[11px] border bg-cyan-500/10 text-cyan-300 border-cyan-500/20">
+                            نوع: {draftKindLabel}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[11px] border bg-slate-700/30 text-slate-200 border-white/10">
+                            قراردادها: {contractCount.toLocaleString('fa-IR')}
                           </span>
                         </div>
 
@@ -299,11 +329,7 @@ export default function DraftTemplates() {
                       />
                     </div>
 
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <InfoItem
-                        label="روش ثبت حقوق"
-                        value={template.payroll.inputMode === 'agreed' ? 'حقوق توافقی' : 'ورود دستی'}
-                      />
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                       <InfoItem label="ناخالص توافقی (30 روز)" value={formatMoney(agreedSummary?.gross ?? null)} />
                       <InfoItem label="خالص توافقی (30 روز)" value={formatMoney(agreedSummary?.net ?? null)} />
                     </div>
