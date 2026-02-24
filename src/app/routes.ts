@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+﻿import { createBrowserRouter } from "react-router";
 import Root from "./pages/Root";
 import Dashboard from "./pages/Dashboard";
 import Locations from "./pages/Locations";
@@ -8,6 +8,14 @@ import AddPolicy from "./pages/AddPolicy";
 import DraftTemplates from "./pages/DraftTemplates";
 import DraftTemplateEditor from "./pages/DraftTemplateEditor";
 import PayrollPackagePurchase from "./pages/PayrollPackagePurchase";
+import WorkGroups from "./pages/WorkGroups";
+import AddWorkGroup from "./pages/AddWorkGroup";
+import PayrollContract from "./pages/PayrollContract";
+import Employees from "./pages/Employees";
+import AddEmployee from "./pages/AddEmployee";
+import EmployeeDetails from "./pages/EmployeeDetails";
+import EmployeeDetailPage from "./pages/EmployeeDetailPage";
+import QuickSetup from "./pages/QuickSetup";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +32,15 @@ export const router = createBrowserRouter([
       { path: "draft-templates/add", Component: DraftTemplateEditor },
       { path: "draft-templates/:id", Component: DraftTemplateEditor },
       { path: "draft-templates/payroll-package", Component: PayrollPackagePurchase },
+      { path: "work-groups", Component: WorkGroups },
+      { path: "work-groups/add", Component: AddWorkGroup },
+      { path: "work-groups/:id", Component: AddWorkGroup },
+      { path: "employees", Component: Employees },
+      { path: "employees/add", Component: AddEmployee },
+      { path: "employees/:id/:page", Component: EmployeeDetailPage },
+      { path: "employees/:id", Component: EmployeeDetails },
+      { path: "quick-setup", Component: QuickSetup },
+      { path: "payroll-contract", Component: PayrollContract },
     ],
   },
 ]);

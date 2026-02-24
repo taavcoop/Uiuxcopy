@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
@@ -58,4 +58,28 @@ function TooltipContent({
   );
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
+// Simple Tooltip wrapper for common use cases
+interface SimpleTooltipProps {
+  content: string;
+  children: React.ReactNode;
+  side?: "top" | "right" | "bottom" | "left";
+  delayDuration?: number;
+}
+
+function SimpleTooltip({ content, children, side = "top", delayDuration = 200 }: SimpleTooltipProps) {
+  return (
+    <TooltipProvider delayDuration={delayDuration}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {children}
+        </TooltipTrigger>
+        <TooltipContent side={side}>
+          {content}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, SimpleTooltip };
+
