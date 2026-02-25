@@ -5,8 +5,6 @@ export default function Step3Policy() {
   const [nightFrom, setNightFrom] = useState('22:00');
   const [nightTo, setNightTo] = useState('06:00');
 
-  const [overtimeEnabled, setOvertimeEnabled] = useState(true);
-
   const [geofenceEnabled, setGeofenceEnabled] = useState(false);
   const [faceEnabled, setFaceEnabled] = useState(false);
 
@@ -54,26 +52,6 @@ export default function Step3Policy() {
             />
           </div>
         )}
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 space-y-3">
-        <div className="text-sm font-semibold text-slate-100">اضافه کاری</div>
-        <div className="flex items-center gap-2">
-          <button
-            title="آیا اضافه کاری فعال باشد؟"
-            className={`px-3 py-1.5 rounded-lg border text-xs ${overtimeEnabled ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-200' : 'border-white/15 text-slate-300'}`}
-            onClick={() => setOvertimeEnabled(true)}
-          >
-            دارد
-          </button>
-          <button
-            title="اگر اضافه کاری ندارید این گزینه را انتخاب کنید"
-            className={`px-3 py-1.5 rounded-lg border text-xs ${!overtimeEnabled ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-200' : 'border-white/15 text-slate-300'}`}
-            onClick={() => setOvertimeEnabled(false)}
-          >
-            ندارد
-          </button>
-        </div>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 space-y-3">

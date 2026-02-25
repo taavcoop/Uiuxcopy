@@ -122,53 +122,34 @@ export default function Employees() {
           </motion.button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 bg-slate-900/60 border border-white/5 rounded-2xl p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative flex-1">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="جستجو بر اساس نام، کد پرسنلی، نقش یا گروه کاری..."
-                  className="input-field pr-10"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-slate-400" />
-                {['all', 'active', 'onboarding', 'inactive'].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setStatusFilter(status as typeof statusFilter)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                      statusFilter === status
-                        ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/40'
-                        : 'bg-slate-800/60 text-slate-400 border-white/5 hover:text-slate-200'
-                    )}
-                  >
-                    {status === 'all'
-                      ? 'همه'
-                      : STATUS_LABELS[status as Employee['status']]}
-                  </button>
-                ))}
-              </div>
+        <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="جستجو بر اساس نام، کد پرسنلی، نقش یا گروه کاری..."
+                className="input-field pr-10"
+              />
             </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-slate-900/70 to-slate-950 border border-white/5 rounded-2xl p-4">
-            <div className="flex items-center justify-between text-sm text-slate-400">
-              <span>تعداد کل کارمندان</span>
-              <span className="text-white font-bold">{employees.length}</span>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-              {(['active', 'onboarding', 'inactive'] as const).map((status) => (
-                <div key={status} className="bg-slate-800/60 border border-white/5 rounded-xl py-2">
-                  <div className="text-white font-bold">
-                    {employees.filter((employee) => employee.status === status).length}
-                  </div>
-                  <div className="text-slate-500 mt-1">{STATUS_LABELS[status]}</div>
-                </div>
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-slate-400" />
+              {['all', 'active', 'onboarding', 'inactive'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status as typeof statusFilter)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
+                    statusFilter === status
+                      ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/40'
+                      : 'bg-slate-800/60 text-slate-400 border-white/5 hover:text-slate-200'
+                  )}
+                >
+                  {status === 'all'
+                    ? 'همه'
+                    : STATUS_LABELS[status as Employee['status']]}
+                </button>
               ))}
             </div>
           </div>
