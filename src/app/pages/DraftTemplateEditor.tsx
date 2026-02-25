@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { BarChart3, ChevronRight, Info, Lock, Plus, Trash2, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import {
   getDraftTemplateById,
   getPayrollPackageEnabled,
@@ -13,6 +14,7 @@ import {
   type DraftTemplate,
   type EydiPayoutMode,
   type FixedAdjustmentItem,
+  type LaborOfficeReferenceMode,
   type LaborOfficeReferencePreset,
   type PayrollDraftKind,
   type PayrollField,
@@ -310,7 +312,12 @@ const hydrateTemplate = (input: DraftTemplate): DraftTemplate => {
   return {
     ...base,
     ...input,
-    laborOfficeReference: input.laborOfficeReference ?? null,
+    laborOfficeReference: input.laborOfficeReference
+      ? {
+          ...input.laborOfficeReference,
+          mode: input.laborOfficeReference.mode ?? 'apply',
+        }
+      : null,
     attendance: { ...base.attendance, ...input.attendance },
     payroll: normalizeBaseWageFlags(payrollWithFields),
     savedSections: { ...base.savedSections, ...input.savedSections },
@@ -462,6 +469,11 @@ type ReferenceDeviation = {
   kind: 'below' | 'above';
 };
 
+const LABOR_OFFICE_REFERENCE_MODE_LABELS: Record<LaborOfficeReferenceMode, string> = {
+  apply: 'تنظیم قالب با مقادیر مرجع',
+  warning: 'فقط هشدار و مقایسه',
+};
+
 export default function DraftTemplateEditor() {
   const navigate = useNavigate();
   const params = useParams();
@@ -472,6 +484,10 @@ export default function DraftTemplateEditor() {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string | null>(existing?.updatedAt ?? null);
   const [isMobileReportOpen, setIsMobileReportOpen] = useState(false);
+  const [isLaborOfficeRefModeDialogOpen, setIsLaborOfficeRefModeDialogOpen] = useState(false);
+  const [pendingLaborOfficeReferencePreset, setPendingLaborOfficeReferencePreset] = useState<LaborOfficeReferencePreset | null>(
+    null,
+  );
   const didMountAutoSaveRef = useRef(false);
   const hasPayrollPackage = getPayrollPackageEnabled();
 
@@ -546,12 +562,26 @@ export default function DraftTemplateEditor() {
     }));
   };
 
-  const applyLaborOfficeReference = (preset: LaborOfficeReferencePreset | null) => {
+  const applyLaborOfficeReference = (preset: LaborOfficeReferencePreset | null, mode: LaborOfficeReferenceMode = 'apply') => {
     setTemplate((prev) => {
       if (!preset) {
         return {
           ...prev,
           laborOfficeReference: null,
+        };
+      }
+
+      if (mode === 'warning') {
+        return {
+          ...prev,
+          laborOfficeReference: {
+            id: preset.id,
+            title: preset.title,
+            startDate: preset.startDate,
+            endDate: preset.endDate,
+            appliedAt: new Date().toISOString(),
+            mode,
+          },
         };
       }
 
@@ -585,6 +615,7 @@ export default function DraftTemplateEditor() {
           startDate: preset.startDate,
           endDate: preset.endDate,
           appliedAt: new Date().toISOString(),
+          mode,
         },
         attendance: {
           ...prev.attendance,
@@ -595,16 +626,53 @@ export default function DraftTemplateEditor() {
     });
 
     if (preset) {
-      setNotice({
-        type: 'success',
-        text: `مقادیر مرجع «${preset.title}» در فیلدهای مرتبط اعمال شد.`,
-      });
+      setNotice(
+        mode === 'apply'
+          ? {
+              type: 'success',
+              text: `مقادیر مرجع «${preset.title}» در فیلدهای مرتبط اعمال شد.`,
+            }
+          : {
+              type: 'success',
+              text: `مرجع «${preset.title}» فقط برای هشدار و مقایسه متصل شد و مقادیر فرم تغییر نکرد.`,
+            },
+      );
     } else {
       setNotice({
         type: 'success',
         text: 'اتصال قالب به مرجع اداره کار حذف شد. مقادیر فعلی فرم بدون تغییر باقی ماند.',
       });
     }
+  };
+
+  const handleLaborOfficeReferenceSelect = (presetId: string) => {
+    if (!presetId) {
+      setPendingLaborOfficeReferencePreset(null);
+      setIsLaborOfficeRefModeDialogOpen(false);
+      applyLaborOfficeReference(null);
+      return;
+    }
+
+    const preset = getLaborOfficeReferencePresetById(presetId);
+    if (!preset) {
+      setNotice({ type: 'error', text: 'مرجع اداره کار انتخاب‌شده معتبر نیست.' });
+      return;
+    }
+
+    setPendingLaborOfficeReferencePreset(preset);
+    setIsLaborOfficeRefModeDialogOpen(true);
+  };
+
+  const handleLaborOfficeRefModeDialogChange = (open: boolean) => {
+    setIsLaborOfficeRefModeDialogOpen(open);
+    if (!open) setPendingLaborOfficeReferencePreset(null);
+  };
+
+  const handleConfirmLaborOfficeReferenceMode = (mode: LaborOfficeReferenceMode) => {
+    if (!pendingLaborOfficeReferencePreset) return;
+    applyLaborOfficeReference(pendingLaborOfficeReferencePreset, mode);
+    setIsLaborOfficeRefModeDialogOpen(false);
+    setPendingLaborOfficeReferencePreset(null);
   };
 
   const setShiftCoverage = (kind: 'insurance' | 'tax', value: boolean) => {
@@ -889,6 +957,50 @@ export default function DraftTemplateEditor() {
           </div>
         )}
 
+        <Dialog open={isLaborOfficeRefModeDialogOpen} onOpenChange={handleLaborOfficeRefModeDialogChange}>
+          <DialogContent dir="rtl" className="bg-slate-900 border-white/10 text-slate-100 sm:max-w-xl">
+            <DialogHeader className="text-right">
+              <DialogTitle className="text-white">نحوه استفاده از مرجع اداره کار</DialogTitle>
+              <DialogDescription className="text-slate-300 leading-6">
+                {pendingLaborOfficeReferencePreset
+                  ? `مرجع «${pendingLaborOfficeReferencePreset.title}» را چگونه می‌خواهید استفاده کنید؟`
+                  : 'نحوه استفاده از مرجع اداره کار را انتخاب کنید.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => handleConfirmLaborOfficeReferenceMode('apply')}
+                className="text-right rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 p-3"
+              >
+                <div className="text-sm font-semibold text-emerald-100">تنظیم قالب با مقادیر اداره کار</div>
+                <div className="text-xs text-emerald-200/80 mt-1">
+                  مقادیر مرتبط (مزایا، ضرایب، بیمه/مالیات و بخشی از حضور و غیاب) روی فرم اعمال می‌شوند.
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmLaborOfficeReferenceMode('warning')}
+                className="text-right rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/15 p-3"
+              >
+                <div className="text-sm font-semibold text-sky-100">فقط برای هشدار و مقایسه</div>
+                <div className="text-xs text-sky-200/80 mt-1">
+                  مرجع ذخیره می‌شود اما مقادیر فعلی فرم تغییر نمی‌کنند و فقط هشدار اختلاف نمایش داده می‌شود.
+                </div>
+              </button>
+            </div>
+            <DialogFooter className="sm:justify-start">
+              <button
+                type="button"
+                onClick={() => handleLaborOfficeRefModeDialogChange(false)}
+                className="px-3 py-2 rounded-lg border border-white/15 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white"
+              >
+                انصراف
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <div
           className={`grid grid-cols-1 gap-4 items-start ${canShowLiveReport ? 'xl:grid-cols-[minmax(0,1fr)_23rem]' : ''}`}
         >
@@ -937,7 +1049,7 @@ export default function DraftTemplateEditor() {
               <Field label="مقادیر مرجع اداره کار">
                 <select
                   value={template.laborOfficeReference?.id ?? ''}
-                  onChange={(e) => applyLaborOfficeReference(getLaborOfficeReferencePresetById(e.target.value))}
+                  onChange={(e) => handleLaborOfficeReferenceSelect(e.target.value)}
                   className="input-field"
                 >
                   <option value="">عدم استفاده از مرجع اداره کار</option>
@@ -949,8 +1061,8 @@ export default function DraftTemplateEditor() {
                 </select>
               </Field>
               <p className="text-[11px] text-slate-400">
-                با انتخاب مرجع، مقادیر پایه اداره کار (مزایا، ضرایب، بیمه/مالیات و بخشی از حضور و غیاب) به‌صورت خودکار
-                در فرم قرار می‌گیرند.
+                پس از انتخاب مرجع، از شما پرسیده می‌شود که مقادیر مرجع روی فرم اعمال شوند یا فقط برای هشدار و مقایسه
+                استفاده شوند.
               </p>
               <div
                 className={`rounded-lg border p-3 text-xs ${
@@ -966,6 +1078,7 @@ export default function DraftTemplateEditor() {
                       بازه اعتبار: {getReferenceDateRangeLabel(template.laborOfficeReference)} | زمان اعمال:{' '}
                       {formatReferenceDate(template.laborOfficeReference.appliedAt)}
                     </div>
+                    <div>نوع استفاده: {LABOR_OFFICE_REFERENCE_MODE_LABELS[template.laborOfficeReference.mode ?? 'apply']}</div>
                   </div>
                 ) : (
                   <span>برای این قالب از مقادیر مرجع اداره کار استفاده نشده است.</span>

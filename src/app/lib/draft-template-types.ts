@@ -55,12 +55,15 @@ export interface FixedAdjustmentItem {
   baseWage: boolean;
 }
 
+export type LaborOfficeReferenceMode = 'apply' | 'warning';
+
 export interface LaborOfficeReferenceSelection {
   id: string;
   title: string;
   startDate: string;
   endDate: string;
   appliedAt: string;
+  mode: LaborOfficeReferenceMode;
 }
 
 export interface DraftTemplateAttendance {
@@ -347,6 +350,7 @@ export const createMockDraftTemplates = (): DraftTemplate[] => {
     startDate: '2025-03-21',
     endDate: '2026-03-20',
     appliedAt: new Date().toISOString(),
+    mode: 'apply',
   };
   first.savedSections.base = new Date().toISOString();
   first.savedSections.attendance = new Date().toISOString();
